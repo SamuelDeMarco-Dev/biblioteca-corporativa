@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Permissao {
+  id Int @id @default(autoincrement())
+  nome String @unique // ex: ADMIN, BIBLIOTECARIO, LEITOR
+  descricao String?
+  usuarios Usuario[]
+
+  @@map("permissoes")
+}
+
+model Usuario {
+  id Int @id @default(autoincrement())
+  nome String
+  cpf String @unique // critério de aceite: CPF único
+  email String @unique 
+  senhaHash String @map("senha_hash")
+  permissaoId Int @map("permissao_id")
+  permissao Permissao @relation(fields: [permissaoId], references: [id])
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  locacoes Locacao[]
+  movimentacoes HistoricoMovimentacao[]
+
+  @@map("usuarios")
+}
+
+model Livro {
+  id Int @id @default(autoincrement())
+  titulo String
+  autor String
+  isbn String? @unique
+  editora String?
+  anoEdicao Int? @map("ano_edicao")
+  criadoEm DateTime @default(now()) @map("criado_em")
+  exemplares Exemplar[]
+
+  @@map("livros")
+}
+
+enum StatusExemplar {
+  DISPONIVEL
+  LOCADO
+  MANUTENCAO
+}
+
+model Exemplar {
+  id Int @id @default(autoincrement())
+  codigo String @unique //etiqueta tombo fisico da cópia
+  status StatusExemplar @default(DISPONIVEL) //critério: disponivel ou locado
+  livroId Int @map("livro_id")
+  livro Livro @relation(fields: [livroId], references: [id])
+
+  locacoes Locacao[]
+
+  @@map("exemplares")
+}
+
+model Locacao {
+  id Int @id @default(autoincrement())
+  usuarioId Int @map("usuario_id")
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  exemplarId Int @map("exemplar_id")
+  exemplar Exemplar @relation(fields: [exemplarId], references: [id])
+  dataLocacao DateTime @default(now()) @map("data_locacao")
+  dataPrevista DateTime @map("data_prevista")
+  dataDevolucao DateTime? @map("data_devolucao") // null = ainda locado
+
+  movimentacoes HistoricoMovimentacao[]
+
+  @@map("locacoes")
+}
+
+enum TipoMovimentacao {
+  LOCACAO
+  DEVOLUCAO
+  RENOVACAO
+}
+
+model HistoricoMovimentacao {
+  id Int @id @default(autoincrement())
+  tipo TipoMovimentacao
+  locacaoId Int @map("locacao_id")
+  locacao Locacao @relation(fields: [locacaoId], references: [id])
+  usuarioId Int @map("usuario_id")
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  dataHora DateTime @default(now()) @map("data_hora")
+  observacao String?
+
+  @@map("historico_movimentacoes")
+}
