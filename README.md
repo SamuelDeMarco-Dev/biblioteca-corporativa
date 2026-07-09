@@ -52,6 +52,20 @@ Copie o arquivo de exemplo e ajuste os valores conforme seu ambiente:
 cp .env.example .env
 ```
 
+Variáveis disponíveis:
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `PORT` | `3002` | Porta em que a aplicação escuta |
+| `DB_HOST` | `db` | Host do PostgreSQL (`db` = nome do serviço no Docker Compose; use `localhost` fora do Docker) |
+| `DB_PORT` | `5432` | Porta do PostgreSQL |
+| `DB_USER` | — | Usuário do banco de dados |
+| `DB_PASSWORD` | — | Senha do banco de dados |
+| `DB_NAME` | `biblioteca` | Nome do banco de dados |
+| `JWT_SECRET` | — | Segredo para assinatura dos tokens JWT |
+
+> ⚠️ **Sobre a porta:** o projeto usa **3002** como padrão (a 3000 costuma estar ocupada por outros serviços). A porta é configurável via `PORT`, mas ao alterá-la é preciso ajustar também o mapeamento `ports` do serviço `app` no `docker-compose.yml`.
+
 ### 3. Instalar dependências
 
 ```bash
@@ -75,7 +89,21 @@ npm start
 **Com Docker Compose** (aplicação + banco de dados):
 
 ```bash
-docker-compose up -d
+docker compose up -d --build
+```
+
+### 5. Verificar se está funcionando
+
+A aplicação sobe em [http://localhost:3002](http://localhost:3002). Para testar a conexão com o banco de dados:
+
+```bash
+curl http://localhost:3002/health
+```
+
+Resposta esperada:
+
+```json
+{ "status": "ok", "database": "conectado", "hora": "..." }
 ```
 
 ## 📜 Scripts disponíveis
