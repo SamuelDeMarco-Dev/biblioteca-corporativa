@@ -8,8 +8,9 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 - **TypeScript** — tipagem estática (compilado com `tsc`, executado em dev com `tsx`)
 - **PostgreSQL** — banco de dados
 - **Prisma ORM 7** — modelagem, migrations e client tipado (via `@prisma/adapter-pg`)
-- **JWT** (`jsonwebtoken`) — autenticação
+- **JWT** (`jsonwebtoken`) — autenticação e autorização por perfil
 - **bcryptjs** — criptografia de senhas
+- **Zod** — validação dos dados de entrada
 - **Docker / Docker Compose** — containerização
 - **Jest** — testes automatizados
 
@@ -20,6 +21,11 @@ template-node-mvc/
 ├── src/
 │   ├── server.ts          # Ponto de entrada da aplicação
 │   ├── app.ts             # Configuração do Express (middlewares e rotas)
+│   ├── routes/            # Definição das rotas (ex.: usuario.routes.ts)
+│   ├── controllers/       # Camada HTTP (req/res, status codes)
+│   ├── services/          # Regra de negócio e acesso ao Prisma
+│   ├── middlewares/       # Autenticação e autorização (auth.ts)
+│   ├── schemas/           # Validação de entrada com Zod
 │   ├── lib/
 │   │   └── prisma.ts      # Instância única do Prisma Client
 │   └── generated/         # Client do Prisma gerado (não versionado)
@@ -41,14 +47,20 @@ O schema (em [prisma/schema.prisma](prisma/schema.prisma)) define seis tabelas p
 
 | Tabela | Descrição |
 |--------|-----------|
-| `permissoes` | Perfis de acesso (ex.: ADMIN, BIBLIOTECARIO, LEITOR) |
-| `usuarios` | Usuários do sistema — CPF e e-mail únicos; vinculados a uma permissão |
+| `permissoes` | Permissões específicas atribuíveis a usuários (relação N:N) |
+| `usuarios` | Usuários do sistema — CPF e e-mail únicos; possuem `perfil`, `setor` e permissões |
 | `livros` | Títulos do acervo (autor, ISBN, editora) |
 | `exemplares` | Cópias físicas de um livro, com status `DISPONIVEL` / `LOCADO` / `MANUTENCAO` |
 | `locacoes` | Empréstimos de exemplares a usuários (com data de devolução) |
 | `historico_movimentacoes` | Auditoria de locações, devoluções e renovações |
 
 > A separação entre **livro** (título) e **exemplar** (cópia física) permite controlar múltiplos exemplares de um mesmo livro e saber, individualmente, se cada cópia está disponível ou locada.
+
+O usuário distingue dois conceitos de acesso:
+
+- **`perfil`** (enum) — papel que controla o acesso: `ADMINISTRADOR` ou `USUARIO`.
+- **`permissoes`** (relação N:N) — permissões específicas e granulares, atribuíveis por usuário.
+- **`setor`** (enum) — área da empresa: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA`.
 
 ## ⚙️ Pré-requisitos
 
@@ -139,6 +151,50 @@ Resposta esperada:
 
 > Ao inserir dados manualmente, respeite a ordem de dependência: crie uma **permissão** antes do **usuário**, e um **livro** antes do **exemplar**.
 
+## 🔌 API
+
+### `POST /usuarios` — Cadastro de usuário
+
+Cadastra um novo usuário no sistema. **Restrito a administradores.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>`, e o token deve pertencer a um usuário com `perfil: ADMINISTRADOR`.
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `nome` | string | ✅ | Nome do usuário |
+| `email` | string | ✅ | E-mail (único e em formato válido) |
+| `setor` | enum | ✅ | Um dos setores: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA` |
+| `cpf` | string | ✅ | CPF com 11 dígitos (único) |
+| `senha` | string | ✅ | Mínimo de 6 caracteres (armazenada com hash) |
+| `perfil` | enum | ✅ | `ADMINISTRADOR` ou `USUARIO` |
+| `permissoesIds` | number[] | ❌ | IDs de permissões específicas a vincular |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "nome": "Maria Silva",
+  "email": "maria@empresa.com",
+  "setor": "TI",
+  "cpf": "12345678901",
+  "senha": "senha123",
+  "perfil": "USUARIO",
+  "permissoesIds": [1, 2]
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `201 Created` | Usuário cadastrado (a senha nunca é retornada) |
+| `400 Bad Request` | Campos inválidos (validação Zod) ou JSON malformado |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+| `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
@@ -150,9 +206,9 @@ Resposta esperada:
 
 ## ✨ Funcionalidades
 
+- 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 📖 Cadastro de livros e controle de exemplares
 - 🔄 Locação e devolução de livros
-- 👥 Gerenciamento de usuários e permissões
 - 📊 Dashboard administrativo
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api)
 
