@@ -1,5 +1,5 @@
-# 1. Imagem base: Node 18 na variante Alpine (leve, ~50MB vs ~1GB da completa)
-FROM node:18-alpine
+# 1. Imagem base: Node 22 na variante Alpine (leve, ~50MB vs ~1GB da completa)
+FROM node:22-alpine
 
 # 2. Define o diretório de trabalho dentro do container
 WORKDIR /app
@@ -8,13 +8,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # 4. Instala somente dependências de produção
-RUN npm install --omit=dev
+RUN npm install
 
 # 5. Agora sim copia o restante do código
 COPY . .
 
-# 6. Documenta a porta que a aplicação usa
-EXPOSE 3000
+RUN  npm run build
 
-# 7. Comando executado quando o container sobe
-CMD ["npm", "start"]
+EXPOSE 3002
+
+CMD [ "sh", "-c", "npx prisma migrate deploy && npm start" ]
