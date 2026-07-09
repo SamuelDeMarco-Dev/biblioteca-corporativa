@@ -13,29 +13,47 @@ datasource db {
   provider = "postgresql"
 }
 
-model Permissao {
-  id Int @id @default(autoincrement())
-  nome String @unique // ex: ADMIN, BIBLIOTECARIO, LEITOR
-  descricao String?
-  usuarios Usuario[]
+enum Perfil {
+  ADMINISTRADOR
+  USUARIO
+}
 
-  @@map("permissoes")
+enum Setor{
+  SUPORTE
+  SERVICOS
+  SANCONHUB
+  ADMINISTRATIVO
+  COMERCIAL
+  MARKETING
+  TI
+  RH
+  DIRETORIA
 }
 
 model Usuario {
-  id Int @id @default(autoincrement())
-  nome String
-  cpf String @unique // critério de aceite: CPF único
-  email String @unique 
-  senhaHash String @map("senha_hash")
-  permissaoId Int @map("permissao_id")
-  permissao Permissao @relation(fields: [permissaoId], references: [id])
-  criadoEm DateTime @default(now()) @map("criado_em")
+  id         Int         @id @default(autoincrement())
+  nome       String
+  email      String      @unique              // critério: e-mail único
+  setor      Setor       @default(ADMINISTRATIVO)                    
+  cpf        String      @unique              // critério: CPF único
+  senhaHash  String      @map("senha_hash")
+  perfil     Perfil      @default(USUARIO)     // Administrador ou Usuário
+  permissoes Permissao[]                       // permissões específicas (N:N)
+  criadoEm   DateTime    @default(now()) @map("criado_em")
 
-  locacoes Locacao[]
+  locacoes      Locacao[]
   movimentacoes HistoricoMovimentacao[]
 
   @@map("usuarios")
+}
+
+model Permissao {
+  id        Int       @id @default(autoincrement())
+  nome      String    @unique
+  descricao String?
+  usuarios  Usuario[]                          // N:N (era Usuario[] 1:N antes)
+
+  @@map("permissoes")
 }
 
 model Livro {
