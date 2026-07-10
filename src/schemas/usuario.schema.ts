@@ -20,3 +20,13 @@ export const atualizarPermissoesSchema = z.object({
 });
 
 export type AtualizarPermissoesInput = z.infer<typeof atualizarPermissoesSchema>;
+
+export const editarUsuarioSchema = z.object({
+    nome: z.string().min(1, 'Nome é obrigatório').optional(),
+    email: z.string().email('E-mail inválido').optional(),
+    setor: z.enum(['SUPORTE','SERVICOS','SANCONHUB','ADMINISTRATIVO','COMERCIAL','MARKETING','TI','RH','DIRETORIA']).optional(),
+    cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos').optional(),
+    perfil: z.enum(['ADMINISTRADOR','USUARIO']).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'Informe ao menos um campo para atualizar' });
+
+export type EditarUsuarioInput = z.infer<typeof editarUsuarioSchema>;

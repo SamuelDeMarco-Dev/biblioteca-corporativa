@@ -1,8 +1,7 @@
 import path from 'path';
 import authRoutes from './routes/auth.routes';
-
 import usuariosRoutes from './routes/usuario.routes';
-
+import permissoesRoutes from './routes/permissao.routes';
 import express, { Request, Response } from 'express';
 import { prisma } from './lib/prisma';
 import { ErrorRequestHandler } from 'express';
@@ -15,6 +14,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/usuarios', usuariosRoutes);
 app.use('/auth', authRoutes);
+app.use('/permissoes', permissoesRoutes);
 
 app.get('/health', async (req: Request, res: Response) => {
     try{

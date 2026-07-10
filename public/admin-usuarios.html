@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8" /><title>Gerenciar usuários</title></head>
+<body>
+  <h1>Gerenciar usuários</h1>
+  <p id="msg"></p>
+  <div id="lista">Carregando...</div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || 'null');
+
+    // Critério: apenas administradores acessam a tela (gate no cliente; o backend também bloqueia)
+    if (!usuarioLogado || usuarioLogado.perfil !== 'ADMINISTRADOR') {
+      location.href = '/home.html';
+    }
+
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const msg = document.getElementById('msg');
+    function confirmar(texto, cor = 'green') { msg.style.color = cor; msg.textContent = texto; }
+
+    let permissoes = [];
+
+    async function carregar() {
+      const [rU, rP] = await Promise.all([
+        fetch('/usuarios',   { headers: authHeaders }),
+        fetch('/permissoes', { headers: authHeaders }),
+      ]);
+      if (rU.status === 403) { location.href = '/home.html'; return; }
+      const usuarios = await rU.json();
+      permissoes = await rP.json();
+      render(usuarios);
+    }
+
+    function render(usuarios) {
+      const div = document.getElementById('lista');
+      div.innerHTML = '';
+      usuarios.forEach((u) => {
+        const nomesDoUsuario = new Set(u.permissoes.map((p) => p.nome));
+        const checks = permissoes.map((p) => `
+          <label style="display:inline-block;margin-right:8px">
+            <input type="checkbox" data-uid="${u.id}" data-pid="${p.id}" ${nomesDoUsuario.has(p.nome) ? 'checked' : ''} />
+            ${p.nome}
+          </label>`).join('');
+
+        div.innerHTML += `
+          <fieldset style="margin-bottom:12px">
+            <legend>#${u.id} — ${u.email}</legend>
+            <input id="nome-${u.id}" value="${u.nome}" placeholder="Nome" />
+            <select id="perfil-${u.id}">
+              <option value="USUARIO"       ${u.perfil === 'USUARIO' ? 'selected' : ''}>USUARIO</option>
+              <option value="ADMINISTRADOR" ${u.perfil === 'ADMINISTRADOR' ? 'selected' : ''}>ADMINISTRADOR</option>
+            </select>
+            <button onclick="salvarDados(${u.id})">Salvar dados</button>
+            <div style="margin-top:6px">${checks}</div>
+          </fieldset>`;
+      });
+
+      // liga o evento de cada checkbox (habilita/desabilita imediatamente)
+      div.querySelectorAll('input[type=checkbox]').forEach((cb) => {
+        cb.addEventListener('change', () => togglePermissao(cb));
+      });
+    }
+
+    async function salvarDados(id) {
+      const body = {
+        nome:   document.getElementById(`nome-${id}`).value,
+        perfil: document.getElementById(`perfil-${id}`).value,
+      };
+      const resp = await fetch(`/usuarios/${id}`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
+      const dados = await resp.json();
+      if (!resp.ok) return confirmar(dados.erro || 'Falha ao salvar', 'red');
+      confirmar(`Dados do usuário #${id} atualizados com sucesso.`);
+    }
+
+    async function togglePermissao(cb) {
+      const uid = Number(cb.dataset.uid), pid = Number(cb.dataset.pid);
+      const body = cb.checked ? { habilitar: [pid] } : { desabilitar: [pid] };
+      const resp = await fetch(`/usuarios/${uid}/permissoes`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
+      const dados = await resp.json();
+      if (!resp.ok) { cb.checked = !cb.checked; return confirmar(dados.erro || 'Falha na permissão', 'red'); }
+      confirmar(`Permissão ${cb.checked ? 'habilitada' : 'desabilitada'} para o usuário #${uid}.`);
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

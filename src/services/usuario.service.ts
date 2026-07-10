@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { CriarUsuarioInput } from '../schemas/usuario.schema';
 import { PERMISSOES_PADRAO_USUARIO } from '../constants/permissoes';
+import { EditarUsuarioInput } from '../schemas/usuario.schema';
 
 export async function criarUsuario(dados: CriarUsuarioInput) {
     const senhaHash = await bcrypt.hash(dados.senha, 10);
@@ -40,5 +41,27 @@ export async function atualizarPermissoes (
             },
         },
         include: { permissoes: true },
+    });
+}
+
+export async function listarUsuarios() {
+    return prisma.usuario.findMany({
+        orderBy: { nome: 'asc' },
+        select: {
+            id: true, nome: true, email: true, setor: true, cpf: true,
+            perfil: true, criadoEm: true,
+            permissoes: { select: { id: true, nome: true } },
+        },
+    });
+}
+
+export async function editarUsuario(id: number, dados: EditarUsuarioInput) {
+    return prisma.usuario.update({
+        where: { id },
+        data: dados,
+        select: {
+            id: true, nome: true, email: true, setor: true, cpf: true,
+            perfil: true, permissoes: { select: { id: true, nome: true }},
+        },
     });
 }

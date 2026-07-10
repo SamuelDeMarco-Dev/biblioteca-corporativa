@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import { cadastrar, gerenciarPermissoes } from '../controllers/usuario.controller';
+import { cadastrar, gerenciarPermissoes, listar, editar } from '../controllers/usuario.controller';
 import { autenticar, exigirAdmin, exigirPermissao } from '../middlewares/auth';
 import { PERMISSOES } from '../constants/permissoes';
 
 const router = Router();
 
+router.get('/', autenticar, exigirAdmin, listar);
+
 router.post('/', autenticar, exigirPermissao(PERMISSOES.CADASTRAR_USUARIOS), cadastrar);
 
 router.patch('/:id/permissoes', autenticar, exigirAdmin, gerenciarPermissoes);
+router.patch('/:id', autenticar, exigirAdmin, editar);
 
 export default router;
 
