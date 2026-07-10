@@ -1,9 +1,18 @@
 import { Router } from 'express';
-import { cadastrar } from '../controllers/usuario.controller';
-import { autenticar, exigirAdmin } from '../middlewares/auth';
+import { cadastrar, gerenciarPermissoes } from '../controllers/usuario.controller';
+import { autenticar, exigirAdmin, exigirPermissao } from '../middlewares/auth';
+import { PERMISSOES } from '../constants/permissoes';
 
 const router = Router();
 
-router.post('/', autenticar, exigirAdmin, cadastrar);
+router.post('/', autenticar, exigirPermissao(PERMISSOES.CADASTRAR_USUARIOS), cadastrar);
+
+router.patch('/:id/permissoes', autenticar, exigirAdmin, gerenciarPermissoes);
 
 export default router;
+
+// router.post('/livros',            autenticar, exigirPermissao(PERMISSOES.CADASTRAR_LIVROS), ...);
+// router.delete('/livros/:id',      autenticar, exigirPermissao(PERMISSOES.EXCLUIR_LIVROS),   ...);
+// router.post('/locacoes',          autenticar, exigirPermissao(PERMISSOES.LOCAR_LIVROS),     ...);
+// router.post('/devolucoes',        autenticar, exigirPermissao(PERMISSOES.DEVOLVER_LIVROS),  ...);
+// router.get('/dashboard',          autenticar, exigirPermissao(PERMISSOES.ACESSAR_DASHBOARD),...);

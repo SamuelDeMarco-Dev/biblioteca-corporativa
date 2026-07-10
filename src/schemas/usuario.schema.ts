@@ -11,3 +11,12 @@ export const criarUsuarioSchema = z.object({
 })
 
 export type CriarUsuarioInput = z.infer<typeof criarUsuarioSchema>;
+
+export const atualizarPermissoesSchema = z.object({
+    habilitar: z.array(z.number()).optional(),
+    desabilitar: z.array(z.number()).optional(),
+}).refine((d) => d.habilitar?.length || d.desabilitar?.length, {
+    message: 'Informe ao menos uma Permissão para habilitar ou desabilitar',
+});
+
+export type AtualizarPermissoesInput = z.infer<typeof atualizarPermissoesSchema>;
