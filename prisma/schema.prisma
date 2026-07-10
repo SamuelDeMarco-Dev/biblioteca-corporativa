@@ -40,6 +40,8 @@ model Usuario {
   perfil     Perfil      @default(USUARIO)     // Administrador ou Usuário
   permissoes Permissao[]                       // permissões específicas (N:N)
   criadoEm   DateTime    @default(now()) @map("criado_em")
+  resetTokenHash    String?   @map("reset_token_hash")
+  resetTokenExpira  DateTime? @map("reset_token_expira")
 
   locacoes      Locacao[]
   movimentacoes HistoricoMovimentacao[]

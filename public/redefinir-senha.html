@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8" /><title>Nova senha</title></head>
+<body>
+  <h1>Definir nova senha</h1>
+  <form id="form">
+    <input type="password" id="senha" placeholder="Nova senha (mín. 6)" required />
+    <button type="submit">Salvar</button>
+  </form>
+  <p id="msg"></p>
+  <script>
+    const token = new URLSearchParams(location.search).get('token');
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('msg');
+      const resp = await fetch('/auth/redefinir-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, novaSenha: document.getElementById('senha').value }),
+      });
+      const dados = await resp.json();
+      if (!resp.ok) { msg.style.color = 'red'; msg.textContent = dados.erro; return; }
+      msg.style.color = 'green';
+      msg.textContent = 'Senha redefinida! Redirecionando para o login...';
+      setTimeout(() => (location.href = '/'), 1500);
+    });
+  </script>
+</body>
+</html>
