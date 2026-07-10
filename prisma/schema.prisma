@@ -59,14 +59,16 @@ model Permissao {
 }
 
 model Livro {
-  id Int @id @default(autoincrement())
-  titulo String
-  autor String
-  isbn String? @unique
-  editora String?
-  anoEdicao Int? @map("ano_edicao")
-  criadoEm DateTime @default(now()) @map("criado_em")
-  exemplares Exemplar[]
+  id            Int      @id @default(autoincrement())
+  titulo        String
+  autor         String                              // armazena os autores (ex.: "Fulano, Beltrano")
+  isbn          String?  @unique
+  editora       String?
+  anoPublicacao Int?     @map("ano_edicao")         // renomeia o campo, REUSA a coluna existente
+  edicao        String?                             // NOVO
+  observacao    String?                             // NOVO
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  exemplares    Exemplar[]
 
   @@map("livros")
 }

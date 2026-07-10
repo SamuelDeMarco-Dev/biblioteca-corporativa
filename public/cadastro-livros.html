@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8" /><title>Cadastrar livro</title></head>
+<body>
+  <h1>Cadastrar livro</h1>
+  <form id="form">
+    <input id="titulo"        placeholder="Título" required />
+    <input id="autor"         placeholder="Autor(es)" required />
+    <input id="editora"       placeholder="Editora" required />
+    <input id="anoPublicacao" type="number" placeholder="Ano de publicação" required />
+    <input id="edicao"        placeholder="Edição" required />
+    <input id="observacao"    placeholder="Observação" required />
+    <input id="isbn"          placeholder="ISBN (opcional)" />
+    <input id="quantidadeExemplares" type="number" min="1" value="1" placeholder="Qtd. de exemplares" required />
+    <button type="submit">Salvar</button>
+  </form>
+  <p id="msg"></p>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/';
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('msg');
+      const body = {
+        titulo:        document.getElementById('titulo').value,
+        autor:         document.getElementById('autor').value,
+        editora:       document.getElementById('editora').value,
+        anoPublicacao: Number(document.getElementById('anoPublicacao').value),
+        edicao:        document.getElementById('edicao').value,
+        observacao:    document.getElementById('observacao').value,
+        isbn:          document.getElementById('isbn').value || undefined,
+        quantidadeExemplares: Number(document.getElementById('quantidadeExemplares').value),
+      };
+
+      const resp = await fetch('/livros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const dados = await resp.json();
+      if (!resp.ok) {
+        msg.style.color = 'red';
+        msg.textContent = (dados.erro || '').trim() === 'Você não tem permissão para esta ação'
+          ? 'Você não tem permissão para cadastrar livros.'
+          : (dados.erro || 'Falha ao cadastrar');
+        return;
+      }
+      msg.style.color = 'green';
+      msg.textContent = `Livro "${dados.titulo}" cadastrado com ${dados.exemplares.length} exemplar(es).`;
+      e.target.reset();
+      document.getElementById('quantidadeExemplares').value = 1;
+    });
+  </script>
+</body>
+</html>
