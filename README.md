@@ -10,6 +10,7 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 - **Prisma ORM 7** — modelagem, migrations e client tipado (via `@prisma/adapter-pg`)
 - **JWT** (`jsonwebtoken`) — autenticação e autorização por perfil
 - **bcryptjs** — criptografia de senhas
+- **Nodemailer** — envio de e-mails (redefinição de senha) via SMTP
 - **Zod** — validação dos dados de entrada
 - **Docker / Docker Compose** — containerização
 - **Jest** — testes automatizados
@@ -97,6 +98,12 @@ Variáveis disponíveis:
 | `DB_NAME` | `biblioteca` | Nome do banco de dados |
 | `DATABASE_URL` | — | String de conexão usada pelo Prisma (ver observação abaixo) |
 | `JWT_SECRET` | — | Segredo para assinatura dos tokens JWT |
+| `SMTP_HOST` | — | Host do servidor SMTP. **Vazio em dev** → usa conta de teste Ethereal (link sai no console) |
+| `SMTP_PORT` | `587` | Porta SMTP (`587` = TLS/STARTTLS, `465` = SSL) |
+| `SMTP_USER` | — | Usuário de autenticação SMTP (geralmente o e-mail completo) |
+| `SMTP_PASS` | — | Senha do SMTP (muitas vezes uma "senha de app") |
+| `SMTP_FROM` | — | Remetente exibido no e-mail (ex.: `"Biblioteca <nao-responda@empresa.com>"`) |
+| `APP_URL` | `http://localhost:3002` | URL base usada para montar o link de redefinição no e-mail |
 
 > ⚠️ **Portas:** o app usa **3002** e o PostgreSQL é exposto no host na porta **5433** (a 3000 e a 5432 costumam estar ocupadas por outros serviços / instalações locais). Ao alterá-las, ajuste também os mapeamentos `ports` no `docker-compose.yml`.
 >
@@ -203,6 +210,46 @@ O token expira em **8 horas** e deve ser enviado nas rotas protegidas no header 
 
 > 🔑 **Primeiro acesso:** o cadastro de usuários (`POST /usuarios`) exige um token de administrador. Para criar o primeiro admin — sem o qual não há como gerar esse token — rode o script de bootstrap: `npx tsx prisma/seed-admin.ts` (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA` conforme necessário). Ele insere um administrador com a senha já em hash bcrypt.
 
+### `POST /auth/esqueci-senha` — Solicitar redefinição de senha
+
+Inicia o fluxo de "Esqueci minha senha": valida se o e-mail está cadastrado, gera um token de redefinição (aleatório, armazenado com hash e validade de **30 minutos**) e envia por e-mail um link para o usuário definir uma nova senha. **Rota pública.**
+
+> 📧 O e-mail é enviado via SMTP (config nas variáveis `SMTP_*`). Em desenvolvimento, com `SMTP_HOST` vazio, é usada uma conta de teste **Ethereal** e a URL de preview do e-mail é exibida no console do servidor.
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `email` | string | ✅ | E-mail cadastrado |
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Solicitação aceita — e-mail de redefinição enviado |
+| `400 Bad Request` | Campo inválido (validação Zod) ou JSON malformado |
+| `404 Not Found` | E-mail não cadastrado |
+| `500 Internal Server Error` | Falha ao gerar o token ou enviar o e-mail |
+
+### `POST /auth/redefinir-senha` — Redefinir a senha
+
+Conclui o fluxo: valida o token recebido no link, verifica se **não** está expirado e substitui a senha anterior. O token é de **uso único** — após redefinir, ele é invalidado. **Rota pública.**
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `token` | string | ✅ | Token recebido no link enviado por e-mail |
+| `novaSenha` | string | ✅ | Nova senha (mínimo de 6 caracteres, armazenada com hash) |
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Senha redefinida com sucesso |
+| `400 Bad Request` | Campos inválidos, **ou token inválido / expirado / já utilizado** |
+| `500 Internal Server Error` | Falha inesperada ao redefinir |
+
 ### `POST /usuarios` — Cadastro de usuário
 
 Cadastra um novo usuário no sistema. **Restrito a administradores.**
@@ -257,6 +304,7 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 ## ✨ Funcionalidades
 
 - 🔐 Autenticação de usuários com login por e-mail/senha e token JWT
+- 📧 Recuperação de senha por e-mail (token de uso único com expiração)
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 📖 Cadastro de livros e controle de exemplares
 - 🔄 Locação e devolução de livros
