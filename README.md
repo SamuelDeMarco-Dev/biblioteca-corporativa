@@ -153,6 +153,56 @@ Resposta esperada:
 
 ## 🔌 API
 
+### `POST /auth/login` — Autenticação
+
+Autentica um usuário a partir de e-mail e senha e retorna um token JWT usado nas rotas protegidas. **Rota pública.**
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `email` | string | ✅ | E-mail cadastrado |
+| `senha` | string | ✅ | Senha do usuário |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "email": "admin@empresa.com",
+  "senha": "admin123"
+}
+```
+
+**Exemplo de resposta (`200 OK`):**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "usuario": {
+    "id": 1,
+    "nome": "Administrador",
+    "email": "admin@empresa.com",
+    "setor": "TI",
+    "cpf": "00000000000",
+    "perfil": "ADMINISTRADOR",
+    "criadoEm": "2026-07-10T00:00:00.000Z"
+  }
+}
+```
+
+O token expira em **8 horas** e deve ser enviado nas rotas protegidas no header `Authorization: Bearer <token>`. A senha nunca é retornada.
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Autenticado — retorna `token` e dados do usuário (sem a senha) |
+| `400 Bad Request` | Campos inválidos (validação Zod) ou JSON malformado |
+| `401 Unauthorized` | E-mail inexistente ou senha incorreta |
+| `500 Internal Server Error` | Falha inesperada ao autenticar |
+
+> 🔑 **Primeiro acesso:** o cadastro de usuários (`POST /usuarios`) exige um token de administrador. Para criar o primeiro admin — sem o qual não há como gerar esse token — rode o script de bootstrap: `npx tsx prisma/seed-admin.ts` (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA` conforme necessário). Ele insere um administrador com a senha já em hash bcrypt.
+
 ### `POST /usuarios` — Cadastro de usuário
 
 Cadastra um novo usuário no sistema. **Restrito a administradores.**
@@ -206,6 +256,7 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 
 ## ✨ Funcionalidades
 
+- 🔐 Autenticação de usuários com login por e-mail/senha e token JWT
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 📖 Cadastro de livros e controle de exemplares
 - 🔄 Locação e devolução de livros
