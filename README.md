@@ -279,6 +279,20 @@ Conclui o fluxo: valida o token recebido no link, verifica se **não** está exp
 | `400 Bad Request` | Campos inválidos, **ou token inválido / expirado / já utilizado** |
 | `500 Internal Server Error` | Falha inesperada ao redefinir |
 
+### `GET /usuarios` — Listar usuários
+
+Lista todos os usuários cadastrados (ordenados por nome), com seus perfis e permissões. Usado pela tela de administração. **Restrito a administradores.** A senha (hash) nunca é retornada.
+
+**Autenticação:** requer header `Authorization: Bearer <token>` de um usuário com `perfil: ADMINISTRADOR`.
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Lista de usuários (cada um com `id`, `nome`, `email`, `setor`, `cpf`, `perfil`, `criadoEm` e `permissoes`) |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+
 ### `POST /usuarios` — Cadastro de usuário
 
 Cadastra um novo usuário no sistema. **Restrito a administradores.**
@@ -353,6 +367,49 @@ Habilita ou remove permissões específicas de um usuário. **Restrito a adminis
 | `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
 | `404 Not Found` | Usuário ou permissão informada não encontrado |
 
+### `PATCH /usuarios/:id` — Editar dados e perfil
+
+Atualiza dados básicos e/ou o perfil de um usuário. **Restrito a administradores.** Todos os campos são opcionais, mas ao menos um deve ser informado.
+
+**Autenticação:** requer header `Authorization: Bearer <token>` de um usuário com `perfil: ADMINISTRADOR`.
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `nome` | string | ❌ | Novo nome |
+| `email` | string | ❌ | Novo e-mail (único e em formato válido) |
+| `setor` | enum | ❌ | Um dos setores válidos |
+| `cpf` | string | ❌ | CPF com 11 dígitos (único) |
+| `perfil` | enum | ❌ | `ADMINISTRADOR` ou `USUARIO` |
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Usuário atualizado (sem a senha), com a lista de permissões |
+| `400 Bad Request` | ID inválido, campos inválidos ou nenhum campo informado |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+| `404 Not Found` | Usuário não encontrado |
+| `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
+
+> ⚠️ **Alteração de perfil e o token:** mudar o `perfil` de um usuário só passa a valer no **próximo login** dele, pois o perfil está gravado no JWT. Já a alteração de **permissões** reflete imediatamente (o middleware as consulta no banco a cada requisição).
+
+### `GET /permissoes` — Listar permissões
+
+Retorna todas as permissões disponíveis no sistema (usada para montar a tela de administração). **Restrito a administradores.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>` de um usuário com `perfil: ADMINISTRADOR`.
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Lista de permissões (`id`, `nome`, `descricao`) |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
@@ -367,6 +424,7 @@ Habilita ou remove permissões específicas de um usuário. **Restrito a adminis
 - 🔐 Autenticação de usuários com login por e-mail/senha e token JWT
 - 📧 Recuperação de senha por e-mail (token de uso único com expiração)
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
+- 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
 - 📖 Cadastro de livros e controle de exemplares
 - 🔄 Locação e devolução de livros
 - 📊 Dashboard administrativo
