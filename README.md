@@ -410,6 +410,51 @@ Retorna todas as permissões disponíveis no sistema (usada para montar a tela d
 | `401 Unauthorized` | Token ausente ou inválido |
 | `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
 
+### `POST /livros` — Cadastro de livro
+
+Cadastra um livro no acervo e cria automaticamente a quantidade informada de **exemplares** (todos com status `DISPONIVEL`). **Requer a permissão `CADASTRAR_LIVROS`** (administradores têm acesso por padrão).
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `titulo` | string | ✅ | Título do livro |
+| `autor` | string | ✅ | Autor(es) — vários podem ser separados por vírgula |
+| `editora` | string | ✅ | Editora |
+| `anoPublicacao` | number | ✅ | Ano de publicação |
+| `edicao` | string | ✅ | Edição (ex.: `"2ª"`) |
+| `observacao` | string | ✅ | Observação |
+| `isbn` | string | ❌ | ISBN (único, se informado) |
+| `quantidadeExemplares` | number | ✅ | Quantidade de exemplares a criar (mínimo 1) |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "titulo": "Clean Code",
+  "autor": "Robert C. Martin",
+  "editora": "Prentice Hall",
+  "anoPublicacao": 2008,
+  "edicao": "1ª",
+  "observacao": "Ótimo estado",
+  "quantidadeExemplares": 3
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `201 Created` | Livro cadastrado — retorna o livro com a lista de `exemplares` criados |
+| `400 Bad Request` | Campos obrigatórios inválidos (validação Zod) ou JSON malformado |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
+| `409 Conflict` | Já existe um livro com o mesmo ISBN |
+
+> O livro e seus exemplares são criados numa **transação** (ou tudo, ou nada). Cada exemplar recebe um código de tombo único no formato `<idLivro>-<sequencial>` (ex.: `5-001`).
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
