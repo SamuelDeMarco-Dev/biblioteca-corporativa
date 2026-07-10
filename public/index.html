@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Login — Biblioteca Interna</title>
+</head>
+<body>
+  <h1>📚 Biblioteca Interna</h1>
+  <form id="loginForm">
+    <input type="email" id="email" placeholder="E-mail" required />
+    <input type="password" id="senha" placeholder="Senha" required />
+    <button type="submit">Entrar</button>
+  </form>
+  <p id="erro" style="color:red"></p>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const erro = document.getElementById('erro');
+      erro.textContent = '';
+
+      const resp = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          senha: document.getElementById('senha').value,
+        }),
+      });
+
+      const dados = await resp.json();
+      if (!resp.ok) {
+        erro.textContent = dados.erro || 'Falha no login';   // mensagem de erro na tela
+        return;
+      }
+
+      localStorage.setItem('token', dados.token);            // guarda o token
+      localStorage.setItem('usuario', JSON.stringify(dados.usuario));
+      window.location.href = '/home.html';                   // redireciona
+    });
+  </script>
+</body>
+</html>

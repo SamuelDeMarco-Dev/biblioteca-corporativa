@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8" /><title>Início — Biblioteca</title></head>
+<body>
+  <h1>Bem-vindo(a), <span id="nome"></span>!</h1>
+  <button id="sair">Sair</button>
+  <script>
+    const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+    if (!usuario) window.location.href = '/';                  // sem sessão → volta ao login
+    else document.getElementById('nome').textContent = usuario.nome;
+
+    document.getElementById('sair').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = '/';
+    });
+  </script>
+</body>
+</html>
