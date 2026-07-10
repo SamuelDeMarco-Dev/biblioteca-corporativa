@@ -451,9 +451,53 @@ Cadastra um livro no acervo e cria automaticamente a quantidade informada de **e
 | `400 Bad Request` | Campos obrigatórios inválidos (validação Zod) ou JSON malformado |
 | `401 Unauthorized` | Token ausente ou inválido |
 | `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
-| `409 Conflict` | Já existe um livro com o mesmo ISBN |
+| `409 Conflict` | **Livro duplicado** (mesmo título, autor, editora, ano e edição) ou ISBN já existente |
 
 > O livro e seus exemplares são criados numa **transação** (ou tudo, ou nada). Cada exemplar recebe um código de tombo único no formato `<idLivro>-<sequencial>` (ex.: `5-001`).
+
+**Detecção de duplicados:** antes de criar, o sistema verifica se já existe um livro com o mesmo **título, autor(es), editora, ano de publicação e edição** (comparação _case-insensitive_ nos campos de texto). Se existir, responde `409` com um corpo que identifica o livro existente e permite adicionar exemplares a ele (ver endpoint abaixo):
+
+```json
+{
+  "erro": "Livro já cadastrado no acervo",
+  "duplicado": true,
+  "livro": { "id": 5, "titulo": "Clean Code", "...": "..." },
+  "totalExemplares": 3,
+  "exemplaresDisponiveis": 2
+}
+```
+
+### `POST /livros/:id/exemplares` — Adicionar exemplares a um livro existente
+
+Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retorna a contagem atualizada. Usado quando o cadastro detecta um duplicado e o usuário opta por reforçar o acervo. **Requer a permissão `CADASTRAR_LIVROS`.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `quantidade` | number | ✅ | Quantidade de exemplares a adicionar (mínimo 1) |
+
+**Exemplo de resposta (`201 Created`):**
+
+```json
+{
+  "livro": { "id": 5, "titulo": "Clean Code", "exemplares": [] },
+  "totalExemplares": 5,
+  "exemplaresDisponiveis": 4
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `201 Created` | Exemplares adicionados — retorna `totalExemplares` e `exemplaresDisponiveis` |
+| `400 Bad Request` | ID inválido ou quantidade inválida |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
+| `404 Not Found` | Livro não encontrado |
 
 ## 📜 Scripts disponíveis
 
@@ -470,7 +514,7 @@ Cadastra um livro no acervo e cria automaticamente a quantidade informada de **e
 - 📧 Recuperação de senha por e-mail (token de uso único com expiração)
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
-- 📖 Cadastro de livros e controle de exemplares
+- 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados e reforço de exemplares
 - 🔄 Locação e devolução de livros
 - 📊 Dashboard administrativo
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api)
