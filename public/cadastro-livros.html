@@ -15,15 +15,22 @@
     <button type="submit">Salvar</button>
   </form>
   <p id="msg"></p>
+  <div id="duplicadoAlerta" style="display:none;border:1px solid #c90;padding:10px;margin-top:10px">
+    <p id="duplicadoTexto"></p>
+    <button id="btnAdicionar" type="button">Adicionar os exemplares ao livro existente</button>
+  </div>
 
   <script>
     const token = localStorage.getItem('token');
     if (!token) location.href = '/';
 
-    document.getElementById('form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('msg');
-      const body = {
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const msg = document.getElementById('msg');
+    const alerta = document.getElementById('duplicadoAlerta');
+    const btnAdicionar = document.getElementById('btnAdicionar');
+
+    function lerFormulario() {
+      return {
         titulo:        document.getElementById('titulo').value,
         autor:         document.getElementById('autor').value,
         editora:       document.getElementById('editora').value,
@@ -33,13 +40,29 @@
         isbn:          document.getElementById('isbn').value || undefined,
         quantidadeExemplares: Number(document.getElementById('quantidadeExemplares').value),
       };
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = '';
+      alerta.style.display = 'none';
+      const body = lerFormulario();
 
       const resp = await fetch('/livros', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(body),
+        method: 'POST', headers: authHeaders, body: JSON.stringify(body),
       });
       const dados = await resp.json();
+
+      // Critério: alertar antes de cadastrar duplicado, e oferecer adicionar exemplares.
+      if (resp.status === 409 && dados.duplicado) {
+        alerta.style.display = 'block';
+        document.getElementById('duplicadoTexto').textContent =
+          `O livro "${dados.livro.titulo}" já está cadastrado (${dados.exemplaresDisponiveis} de ${dados.totalExemplares} exemplar(es) disponível(is)). ` +
+          `Deseja adicionar ${body.quantidadeExemplares} novo(s) exemplar(es) a ele?`;
+        btnAdicionar.onclick = () => adicionarExemplares(dados.livro.id, body.quantidadeExemplares);
+        return;
+      }
+
       if (!resp.ok) {
         msg.style.color = 'red';
         msg.textContent = (dados.erro || '').trim() === 'Você não tem permissão para esta ação'
@@ -47,11 +70,23 @@
           : (dados.erro || 'Falha ao cadastrar');
         return;
       }
+
       msg.style.color = 'green';
       msg.textContent = `Livro "${dados.titulo}" cadastrado com ${dados.exemplares.length} exemplar(es).`;
       e.target.reset();
       document.getElementById('quantidadeExemplares').value = 1;
     });
+
+    async function adicionarExemplares(livroId, quantidade) {
+      const resp = await fetch(`/livros/${livroId}/exemplares`, {
+        method: 'POST', headers: authHeaders, body: JSON.stringify({ quantidade }),
+      });
+      const dados = await resp.json();
+      alerta.style.display = 'none';
+      if (!resp.ok) { msg.style.color = 'red'; msg.textContent = dados.erro || 'Falha ao adicionar exemplares'; return; }
+      msg.style.color = 'green';
+      msg.textContent = `Exemplares adicionados. Total agora: ${dados.totalExemplares} (${dados.exemplaresDisponiveis} disponível(is) para locação).`;
+    }
   </script>
 </body>
 </html>

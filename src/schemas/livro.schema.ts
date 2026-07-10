@@ -12,3 +12,9 @@ export const criarLivroSchema = z.object({
 });
 
 export type CriarLivroInput = z.infer<typeof criarLivroSchema>;
+
+export const adicionarExemplaresSchema = z.object({
+    quantidade: z.number().int().min(1, 'Informe ao menos 1 exemplar'),
+});
+
+export type AdicionarExemplaresInput = z.infer<typeof adicionarExemplaresSchema>;
