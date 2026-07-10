@@ -63,6 +63,28 @@ O usuário distingue dois conceitos de acesso:
 - **`permissoes`** (relação N:N) — permissões específicas e granulares, atribuíveis por usuário.
 - **`setor`** (enum) — área da empresa: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA`.
 
+## 🔐 Controle de acesso (perfis e permissões)
+
+O acesso às funcionalidades é controlado em duas camadas:
+
+- **Perfil `ADMINISTRADOR`** — tem **acesso total por padrão**. O middleware de autorização libera qualquer ação sem depender de permissões individuais.
+- **Perfil `USUARIO`** — acesso **limitado**, definido pelas permissões específicas vinculadas a ele (relação N:N).
+
+As permissões possíveis (populadas via seed, ver abaixo):
+
+| Permissão | Descrição |
+|-----------|-----------|
+| `CADASTRAR_USUARIOS` | Cadastrar usuários |
+| `CADASTRAR_LIVROS` | Cadastrar livros |
+| `LOCAR_LIVROS` | Locar livros |
+| `DEVOLVER_LIVROS` | Devolver livros |
+| `EXCLUIR_LIVROS` | Excluir livros |
+| `ACESSAR_DASHBOARD` | Acessar dashboard |
+
+Ao cadastrar um novo `USUARIO` sem permissões explícitas, ele recebe o **conjunto padrão limitado**: `LOCAR_LIVROS`, `DEVOLVER_LIVROS` e `ACESSAR_DASHBOARD`.
+
+A verificação é feita pelo middleware `exigirPermissao(<nome>)` (em [src/middlewares/auth.ts](src/middlewares/auth.ts)), que consulta as permissões do usuário **no banco a cada requisição** — assim, habilitar ou remover uma permissão tem efeito imediato, sem esperar o token expirar. Um administrador gerencia as permissões de um usuário pela rota `PATCH /usuarios/:id/permissoes`.
+
 ## ⚙️ Pré-requisitos
 
 - [Node.js](https://nodejs.org/) 22 ou superior
@@ -155,6 +177,13 @@ Resposta esperada:
 | `npx prisma migrate deploy` | Aplica migrations pendentes (produção / container) |
 | `npx prisma generate` | Regenera o client tipado a partir do schema |
 | `npx prisma studio` | Abre a interface visual para inspecionar e editar dados |
+
+**Seeds (dados iniciais):**
+
+| Comando | Descrição |
+|---------|-----------|
+| `npx tsx prisma/seed-permissoes.ts` | Popula as 6 permissões do sistema (idempotente) |
+| `npx tsx prisma/seed-admin.ts` | Cria o primeiro usuário administrador (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA`) |
 
 > Ao inserir dados manualmente, respeite a ordem de dependência: crie uma **permissão** antes do **usuário**, e um **livro** antes do **exemplar**.
 
@@ -291,6 +320,38 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 | `401 Unauthorized` | Token ausente ou inválido |
 | `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
 | `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
+
+### `PATCH /usuarios/:id/permissoes` — Habilitar/desabilitar permissões
+
+Habilita ou remove permissões específicas de um usuário. **Restrito a administradores.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>` de um usuário com `perfil: ADMINISTRADOR`.
+
+**Corpo (JSON):** informe ao menos um dos campos.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `habilitar` | number[] | ❌ | IDs de permissões a vincular ao usuário |
+| `desabilitar` | number[] | ❌ | IDs de permissões a remover do usuário |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "habilitar": [4],
+  "desabilitar": [7]
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Permissões atualizadas — retorna o usuário (sem a senha) com a lista de permissões |
+| `400 Bad Request` | ID inválido, corpo inválido ou nenhum campo informado |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+| `404 Not Found` | Usuário ou permissão informada não encontrado |
 
 ## 📜 Scripts disponíveis
 
