@@ -239,6 +239,32 @@ O token expira em **8 horas** e deve ser enviado nas rotas protegidas no header 
 
 > 🔑 **Primeiro acesso:** o cadastro de usuários (`POST /usuarios`) exige um token de administrador. Para criar o primeiro admin — sem o qual não há como gerar esse token — rode o script de bootstrap: `npx tsx prisma/seed-admin.ts` (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA` conforme necessário). Ele insere um administrador com a senha já em hash bcrypt.
 
+### `GET /auth/me` — Dados do usuário logado
+
+Retorna o perfil e as permissões do usuário autenticado, usados pelo front-end para exibir ações conforme o que o usuário pode fazer. Como as permissões são lidas do banco, refletem imediatamente qualquer alteração. **Requer autenticação.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Exemplo de resposta (`200 OK`):**
+
+```json
+{
+  "id": 9,
+  "nome": "Maria Silva",
+  "email": "maria@empresa.com",
+  "perfil": "USUARIO",
+  "permissoes": ["LOCAR_LIVROS", "DEVOLVER_LIVROS", "ACESSAR_DASHBOARD"]
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Dados do usuário logado (`perfil` e `permissoes` achatadas em array de nomes) |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `404 Not Found` | Usuário do token não encontrado |
+
 ### `POST /auth/esqueci-senha` — Solicitar redefinição de senha
 
 Inicia o fluxo de "Esqueci minha senha": valida se o e-mail está cadastrado, gera um token de redefinição (aleatório, armazenado com hash e validade de **30 minutos**) e envia por e-mail um link para o usuário definir uma nova senha. **Rota pública.**
@@ -410,6 +436,31 @@ Retorna todas as permissões disponíveis no sistema (usada para montar a tela d
 | `401 Unauthorized` | Token ausente ou inválido |
 | `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
 
+### `GET /livros` — Listar livros do acervo
+
+Lista todos os livros (ordenados por título) com o **status derivado** de seus exemplares, para a tela de acervo em grid de cards. **Requer autenticação** (qualquer usuário logado pode ver o acervo; as ações é que exigem permissões).
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+Cada item retorna:
+
+| Campo | Descrição |
+|-------|-----------|
+| `id`, `titulo`, `autor`, `editora`, `anoPublicacao`, `edicao`, `isbn` | Dados do livro |
+| `totalExemplares` | Total de exemplares cadastrados |
+| `exemplaresDisponiveis` | Quantidade de exemplares com status `DISPONIVEL` |
+| `status` | `DISPONIVEL` (há ao menos um exemplar livre) ou `LOCADO` (todos locados) |
+| `dataPrevistaDisponibilidade` | Quando `LOCADO`, a menor data prevista de devolução entre as locações ativas; caso contrário, `null` |
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Lista de livros com status e contagem de exemplares |
+| `401 Unauthorized` | Token ausente ou inválido |
+
+> Enquanto a funcionalidade de locação não estiver ativa, nenhum exemplar fica `LOCADO`, então todos os livros retornam `status: DISPONIVEL` e `dataPrevistaDisponibilidade: null`.
+
 ### `POST /livros` — Cadastro de livro
 
 Cadastra um livro no acervo e cria automaticamente a quantidade informada de **exemplares** (todos com status `DISPONIVEL`). **Requer a permissão `CADASTRAR_LIVROS`** (administradores têm acesso por padrão).
@@ -515,6 +566,7 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
 - 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados e reforço de exemplares
+- 🗂️ Acervo em grid de cards, com status (Disponível/Locado) e ações conforme a permissão do usuário
 - 🔄 Locação e devolução de livros
 - 📊 Dashboard administrativo
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api)
