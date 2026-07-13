@@ -76,3 +76,41 @@ export async function adicionarExemplares(livroId: number, quantidade: number) {
         exemplaresDisponiveis: contarDisponiveis(atualizado!.exemplares),
     };
 }
+
+export async function listarLivros() {
+    const livros = await prisma.livro.findMany({
+        orderBy: { titulo: 'asc' },
+        include: {
+            exemplares: {
+                include: {
+                    locacoes: {
+                        where: { dataDevolucao: null },
+                        orderBy: { dataPrevista: 'asc' },
+                        take: 1,
+                    },
+                },
+            },
+        },
+    });
+
+    return livros.map((l) => {
+        const total = l.exemplares.length;
+        const disponiveis = l.exemplares.filter((e) => e.status === 'DISPONIVEL').length;
+        const status = disponiveis > 0 ? 'DISPONIVEL' : 'LOCADO';
+
+        let dataPrevistaDisponibilidade: Date | null = null;
+        if(status === 'LOCADO'){
+            const datas = l.exemplares
+                .flatMap((e) => e.locacoes.map((loc) => loc.dataPrevista))
+                .sort((a, b) => a.getTime() - b.getTime());
+            dataPrevistaDisponibilidade = datas[0] ?? null;
+        }
+
+        return {
+            id: l.id, titulo: l.titulo, autor: l.autor, editora: l.editora,
+            anoPublicacao: l.anoPublicacao, edicao: l.edicao, isbn: l.isbn,
+            totalExemplares: total, exemplaresDisponiveis: disponiveis,
+            status, dataPrevistaDisponibilidade,
+        };
+    });
+}

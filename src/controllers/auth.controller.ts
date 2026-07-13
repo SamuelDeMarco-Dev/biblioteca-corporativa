@@ -4,6 +4,8 @@ import { autenticarUsuario } from '../services/auth.service';
 import { solicitarResetSchema, redefinirSenhaSchema } from '../schemas/auth.schema';
 import { solicitarReset, redefinirSenha } from '../services/auth.service';
 import { enviarEmailReset } from '../lib/mailer';
+import { AuthRequest } from '../middlewares/auth';
+import { prisma } from '../lib/prisma';
 
 export async function login(req: Request, res: Response) {
     const parse = loginSchema.safeParse(req.body);
@@ -63,3 +65,18 @@ export async function redefinir(req: Request, res: Response){
     }
 }
 
+export async function me(req: AuthRequest, res: Response){
+    const usuario = await prisma.usuario.findUnique({
+        where: { id: req.usuario!.id },
+        select: {
+            id: true, nome: true, email: true, perfil: true,
+            permissoes: { select: { nome: true } },
+        },
+    });
+
+    if(!usuario) return res.status(404).json({ erro: 'Usuário não encontrado' });
+    return res.status(200).json({
+        ...usuario,
+        permissoes: usuario.permissoes.map((p) => p.nome),
+    });
+}

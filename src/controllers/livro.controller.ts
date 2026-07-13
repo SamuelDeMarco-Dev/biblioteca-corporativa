@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { criarLivroSchema, adicionarExemplaresSchema } from '../schemas/livro.schema';
-import { criarLivro, buscarLivroDuplicado, adicionarExemplares } from '../services/livro.service';
+import { criarLivro, buscarLivroDuplicado, adicionarExemplares, listarLivros } from '../services/livro.service';
 
 export async function cadastrar(req: Request, res: Response) {
     const parse = criarLivroSchema.safeParse(req.body);
@@ -47,5 +47,13 @@ export async function adicionarExemplaresController(req: Request, res: Response)
         return res.status(201).json(resultado);
     } catch (err) {
         return res.status(500).json({ erro: 'Erro ao adicionar exemplares' });
+    }
+}
+
+export async function listar(req: Request, res: Response){
+    try {
+        return res.status(200).json(await listarLivros());
+    } catch {
+        return res.status(500).json({ erro: 'Erro ao listar livros' });
     }
 }

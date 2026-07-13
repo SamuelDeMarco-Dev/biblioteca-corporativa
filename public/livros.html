@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Acervo — Livros</title>
+  <style>
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; position: relative; }
+    .badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; color: #fff; }
+    .badge.disp { background: #2e7d32; }   /* Disponível */
+    .badge.loc  { background: #c62828; }   /* Locado */
+    .acoes { display: none; gap: 8px; margin-top: 10px; }
+    .card:hover .acoes, .card:focus-within .acoes { display: flex; }  /* ações no hover/seleção */
+  </style>
+</head>
+<body>
+  <h1>Acervo de livros</h1>
+  <p id="msg"></p>
+  <div id="grid" class="grid">Carregando...</div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/';
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+    let eu = { perfil: 'USUARIO', permissoes: [] };
+    const pode = (p) => eu.perfil === 'ADMINISTRADOR' || eu.permissoes.includes(p);
+    const fmtData = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+
+    async function init() {
+      // 1) quem sou eu (para respeitar permissões nas ações)
+      const rMe = await fetch('/auth/me', { headers: authHeaders });
+      if (rMe.ok) eu = await rMe.json();
+
+      // 2) livros
+      const rL = await fetch('/livros', { headers: authHeaders });
+      const livros = await rL.json();
+      render(livros);
+    }
+
+    function render(livros) {
+      const grid = document.getElementById('grid');
+      if (!livros.length) { grid.textContent = 'Nenhum livro cadastrado.'; return; }
+      grid.innerHTML = '';
+
+      livros.forEach((l) => {
+        const disponivel = l.status === 'DISPONIVEL';
+        const statusHtml = disponivel
+          ? `<span class="badge disp">Disponível</span> (${l.exemplaresDisponiveis}/${l.totalExemplares})`
+          : `<span class="badge loc">Locado</span> — disponível a partir de ${fmtData(l.dataPrevistaDisponibilidade)}`;
+
+        // ações conforme permissão (locar/excluir são de issues futuras)
+        const acoes = [];
+        if (pode('LOCAR_LIVROS') && disponivel) acoes.push(`<button onclick="locar(${l.id})">Locar</button>`);
+        if (pode('CADASTRAR_LIVROS'))           acoes.push(`<button onclick="addExemplar(${l.id})">+ Exemplar</button>`);
+        if (pode('EXCLUIR_LIVROS'))             acoes.push(`<button onclick="excluir(${l.id})">Excluir</button>`);
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.tabIndex = 0;   // permite foco por teclado (focus-within revela ações)
+        card.innerHTML = `
+          <h3>${l.titulo}</h3>
+          <p><strong>Autor(es):</strong> ${l.autor}</p>
+          <p><strong>Editora:</strong> ${l.editora ?? '—'}</p>
+          <p><strong>Ano:</strong> ${l.anoPublicacao ?? '—'} &nbsp; <strong>Edição:</strong> ${l.edicao ?? '—'}</p>
+          <p>${statusHtml}</p>
+          <div class="acoes">${acoes.join('') || '<em>Sem ações disponíveis</em>'}</div>`;
+        grid.appendChild(card);
+      });
+    }
+
+    // "+ Exemplar" já funciona (endpoint da ISSUE 10). Locar/Excluir ficam para issues futuras.
+    async function addExemplar(id) {
+      const qtd = Number(prompt('Quantos exemplares adicionar?', '1'));
+      if (!qtd) return;
+      const r = await fetch(`/livros/${id}/exemplares`, { method: 'POST', headers: authHeaders, body: JSON.stringify({ quantidade: qtd }) });
+      const d = await r.json();
+      document.getElementById('msg').textContent = r.ok ? `Total de exemplares: ${d.totalExemplares}` : (d.erro || 'Falha');
+      if (r.ok) init();
+    }
+    function locar(id)   { alert('Locação será implementada em issue futura (permissão LOCAR_LIVROS).'); }
+    function excluir(id) { alert('Exclusão será implementada em issue futura (permissão EXCLUIR_LIVROS).'); }
+
+    init();
+  </script>
+</body>
+</html>
