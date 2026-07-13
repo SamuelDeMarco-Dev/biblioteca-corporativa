@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { criarLivroSchema, adicionarExemplaresSchema } from '../schemas/livro.schema';
-import { criarLivro, buscarLivroDuplicado, adicionarExemplares, listarLivros } from '../services/livro.service';
+import { criarLivro, buscarLivroDuplicado, adicionarExemplares, listarLivros, buscarLivrosExternos } from '../services/livro.service';
 
 export async function cadastrar(req: Request, res: Response) {
     const parse = criarLivroSchema.safeParse(req.body);
@@ -55,5 +55,17 @@ export async function listar(req: Request, res: Response){
         return res.status(200).json(await listarLivros());
     } catch {
         return res.status(500).json({ erro: 'Erro ao listar livros' });
+    }
+}
+
+export async function buscarExterno(req: Request, res: Response) {
+    const titulo = String(req.query.titulo ?? '').trim();
+    if(titulo.length < 2) return res.status(200).json({ indisponivel: false, sugestoes: [] });
+
+    try {
+        const sugestoes = await buscarLivrosExternos(titulo);
+        return res.status(200).json({ indisponivel: false, sugestoes });
+    } catch (err) {
+        return res.status(200).json({ indisponivel: true, sugestoes: [] });
     }
 }

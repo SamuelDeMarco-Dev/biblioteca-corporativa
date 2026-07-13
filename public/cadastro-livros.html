@@ -4,7 +4,9 @@
 <body>
   <h1>Cadastrar livro</h1>
   <form id="form">
-    <input id="titulo"        placeholder="Título" required />
+    <input id="titulo" placeholder="Título" required autocomplete="off" />
+    <div id="sugestoes" style="border:1px solid #ccc; display:none; max-height:200px; overflow:auto;"></div>
+    <small id="apiAviso" style="color:#c90; display:none;">Sugestões indisponíveis no momento — você pode cadastrar manualmente.</small>
     <input id="autor"         placeholder="Autor(es)" required />
     <input id="editora"       placeholder="Editora" required />
     <input id="anoPublicacao" type="number" placeholder="Ano de publicação" required />
@@ -28,6 +30,67 @@
     const msg = document.getElementById('msg');
     const alerta = document.getElementById('duplicadoAlerta');
     const btnAdicionar = document.getElementById('btnAdicionar');
+
+    const inputTitulo = document.getElementById('titulo');
+const boxSugestoes = document.getElementById('sugestoes');
+const apiAviso = document.getElementById('apiAviso');
+let debounceTimer;
+
+inputTitulo.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const termo = inputTitulo.value.trim();
+  if (termo.length < 2) { boxSugestoes.style.display = 'none'; return; }
+
+  // espera 300ms após parar de digitar
+  debounceTimer = setTimeout(() => buscarSugestoes(termo), 300);
+});
+
+async function buscarSugestoes(termo) {
+  apiAviso.style.display = 'none';
+  try {
+    const resp = await fetch(`/livros/buscar-externo?titulo=${encodeURIComponent(termo)}`, { headers: authHeaders });
+    const dados = await resp.json();
+
+    if (dados.indisponivel) { apiAviso.style.display = 'block'; boxSugestoes.style.display = 'none'; return; }
+    renderSugestoes(dados.sugestoes);
+  } catch {
+    // falha de rede no próprio proxy: não trava a tela, apenas avisa
+    apiAviso.style.display = 'block';
+    boxSugestoes.style.display = 'none';
+  }
+}
+
+function renderSugestoes(lista) {
+  if (!lista.length) { boxSugestoes.style.display = 'none'; return; }
+  boxSugestoes.innerHTML = '';
+  lista.forEach((s) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:6px; cursor:pointer;';
+    item.textContent = `${s.titulo}${s.autor ? ' — ' + s.autor : ''}${s.anoPublicacao ? ' (' + s.anoPublicacao + ')' : ''}`;
+    item.onmouseover = () => item.style.background = '#eef';
+    item.onmouseout  = () => item.style.background = '';
+    item.onclick = () => preencher(s);
+    boxSugestoes.appendChild(item);
+  });
+  boxSugestoes.style.display = 'block';
+}
+
+// Critério: preencher os campos do livro quando possível
+function preencher(s) {
+  inputTitulo.value = s.titulo || '';
+  document.getElementById('autor').value = s.autor || '';
+  document.getElementById('editora').value = s.editora || '';
+  if (s.anoPublicacao) document.getElementById('anoPublicacao').value = s.anoPublicacao;
+  if (s.isbn) document.getElementById('isbn').value = s.isbn;
+  boxSugestoes.style.display = 'none';
+  // edicao e observacao continuam manuais (a Open Library não fornece de forma confiável)
+}
+
+// fecha o dropdown ao clicar fora
+document.addEventListener('click', (e) => {
+  if (!boxSugestoes.contains(e.target) && e.target !== inputTitulo) boxSugestoes.style.display = 'none';
+});
+
 
     function lerFormulario() {
       return {
