@@ -550,6 +550,45 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 | `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
 | `404 Not Found` | Livro não encontrado |
 
+### `GET /livros/buscar-externo` — Autocomplete via Open Library
+
+Consulta a [Open Library API](https://openlibrary.org/developers/api) para sugerir títulos durante o cadastro (autocomplete). Atua como **proxy**: aplica limite de resultados, timeout e tratamento de falha, para o front-end preencher os campos do livro a partir da sugestão escolhida. **Requer a permissão `CADASTRAR_LIVROS`.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Query params:**
+
+| Param | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `titulo` | string | ✅ | Termo de busca (mínimo 2 caracteres; abaixo disso retorna lista vazia) |
+
+**Exemplo de resposta (`200 OK`):**
+
+```json
+{
+  "indisponivel": false,
+  "sugestoes": [
+    {
+      "titulo": "Harry Potter and the Philosopher's Stone",
+      "autor": "J. K. Rowling",
+      "editora": "",
+      "anoPublicacao": 1997,
+      "isbn": ""
+    }
+  ]
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Lista de até **10** sugestões em `sugestoes`. Se a Open Library falhar ou expirar (timeout de 5s), responde `200` com `indisponivel: true` e `sugestoes: []` — a tela continua usável e o cadastro manual permanece possível |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
+
+> ⚠️ A API externa pode não retornar todos os campos (ex.: `editora`, `isbn` costumam vir vazios no `search.json`). Os campos ausentes ficam para preenchimento manual; `edição` e `observação` são sempre manuais.
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
@@ -569,7 +608,7 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 - 🗂️ Acervo em grid de cards, com status (Disponível/Locado) e ações conforme a permissão do usuário
 - 🔄 Locação e devolução de livros
 - 📊 Dashboard administrativo
-- 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api)
+- 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api) — autocomplete de títulos no cadastro de livros
 
 ## 👤 Autor
 
