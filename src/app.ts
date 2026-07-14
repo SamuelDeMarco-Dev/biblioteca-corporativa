@@ -3,9 +3,11 @@ import authRoutes from './routes/auth.routes';
 import usuariosRoutes from './routes/usuario.routes';
 import permissoesRoutes from './routes/permissao.routes';
 import livrosRoutes from './routes/livro.routes';
+import locacaoRoutes from './routes/locacao.routes';
 import express, { Request, Response } from 'express';
 import { prisma } from './lib/prisma';
 import { ErrorRequestHandler } from 'express';
+
 
 
 const app = express();
@@ -17,6 +19,7 @@ app.use('/usuarios', usuariosRoutes);
 app.use('/auth', authRoutes);
 app.use('/permissoes', permissoesRoutes);
 app.use('/livros', livrosRoutes);
+app.use('/locacoes', locacaoRoutes);
 
 app.get('/health', async (req: Request, res: Response) => {
     try{

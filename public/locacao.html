@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8" /><title>Locar livro</title></head>
+<body>
+  <h1>Locação de livro</h1>
+  <p>Usuário: <strong id="usuario">—</strong></p>
+
+  <form id="form">
+    <label>Livro disponível:
+      <select id="livroId" required><option value="">Carregando...</option></select>
+    </label>
+    <label>Dias de utilização:
+      <input id="dias" type="number" min="1" value="7" required />
+    </label>
+    <button type="submit">Confirmar locação</button>
+  </form>
+  <p id="msg"></p>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/';
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const fmt = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+
+    async function init() {
+      // Critério: puxar automaticamente o usuário logado
+      const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
+      document.getElementById('usuario').textContent = `${me.nome} (${me.email})`;
+
+      // Critério: apenas livros disponíveis
+      const livros = await (await fetch('/livros', { headers: authHeaders })).json();
+      const disponiveis = livros.filter((l) => l.status === 'DISPONIVEL');
+      const select = document.getElementById('livroId');
+      select.innerHTML = disponiveis.length
+        ? disponiveis.map((l) => `<option value="${l.id}">${l.titulo} — ${l.autor} (${l.exemplaresDisponiveis} disp.)</option>`).join('')
+        : '<option value="">Nenhum livro disponível</option>';
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('msg');
+      const body = {
+        livroId: Number(document.getElementById('livroId').value),
+        dias:    Number(document.getElementById('dias').value),
+      };
+      if (!body.livroId) { msg.style.color = 'red'; msg.textContent = 'Selecione um livro.'; return; }
+
+      const resp = await fetch('/locacoes', { method: 'POST', headers: authHeaders, body: JSON.stringify(body) });
+      const dados = await resp.json();
+      if (!resp.ok) {
+        msg.style.color = 'red';
+        msg.textContent = (dados.erro || '').trim() === 'Você não tem permissão para esta ação'
+          ? 'Você não tem permissão para locar livros.'
+          : (dados.erro || 'Falha ao locar');
+        return;
+      }
+      msg.style.color = 'green';
+      msg.textContent = `Locação registrada! Exemplar ${dados.exemplar}. Devolver até ${fmt(dados.dataPrevista)}.`;
+      init(); // recarrega a lista (o livro pode ter saído da lista se era o último exemplar)
+    });
+
+    init();
+  </script>
+</body>
+</html>

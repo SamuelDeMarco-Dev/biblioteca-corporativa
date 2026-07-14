@@ -78,7 +78,7 @@
       document.getElementById('msg').textContent = r.ok ? `Total de exemplares: ${d.totalExemplares}` : (d.erro || 'Falha');
       if (r.ok) init();
     }
-    function locar(id)   { alert('Locação será implementada em issue futura (permissão LOCAR_LIVROS).'); }
+    function locar(id) { location.href = `/locacao.html?livroId=${id}`; }
     function excluir(id) { alert('Exclusão será implementada em issue futura (permissão EXCLUIR_LIVROS).'); }
 
     init();
