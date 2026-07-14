@@ -24,11 +24,15 @@
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
     let eu = { perfil: 'USUARIO', permissoes: [] };
-    if(eu.perfil === 'ADMINISTRADOR'){
-      acoes.push(`<button onclick="excluir(${l.id}, '${l.titulo.replace(/'/g, "\\'")}')">Excluir</button>`);
-    }
     const pode = (p) => eu.perfil === 'ADMINISTRADOR' || eu.permissoes.includes(p);
     const fmtData = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+
+    const STATUS = {
+      DISPONIVEL:   { txt: 'Disponível',   cor: '#2e7d32' },
+      LOCADO:       { txt: 'Locado',       cor: '#c62828' },
+      INDISPONIVEL: { txt: 'Indisponível', cor: '#ef6c00' },
+      REMOVIDO:     { txt: 'Removido',     cor: '#616161' },
+    };
 
     async function init() {
       // 1) quem sou eu (para respeitar permissões nas ações)
@@ -48,9 +52,10 @@
 
       livros.forEach((l) => {
         const disponivel = l.status === 'DISPONIVEL';
-        const statusHtml = disponivel
-          ? `<span class="badge disp">Disponível</span> (${l.exemplaresDisponiveis}/${l.totalExemplares})`
-          : `<span class="badge loc">Locado</span> — disponível a partir de ${fmtData(l.dataPrevistaDisponibilidade)}`;
+        const s = STATUS[l.status] ?? STATUS.INDISPONIVEL;
+        let statusHtml = `<span class="badge" style="background:${s.cor}">${s.txt}</span>`;
+        if (l.status === 'DISPONIVEL') statusHtml += ` (${l.exemplaresDisponiveis}/${l.totalExemplares})`;
+        if (l.status === 'LOCADO')     statusHtml += ` — disponível a partir de ${fmtData(l.dataPrevistaDisponibilidade)}`;
 
         // ações conforme permissão (locar/excluir são de issues futuras)
         const acoes = [];
@@ -101,7 +106,6 @@
       msg.textContent = 'Livro removido do acervo.';
       init();
     }
-
 
     init();
   </script>

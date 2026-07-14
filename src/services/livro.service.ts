@@ -66,6 +66,8 @@ export async function adicionarExemplares(livroId: number, quantidade: number) {
         })),
     });
 
+    await recalcularStatusLivro(prisma, livroId);
+
     const atualizado = await prisma.livro.findUnique({
         where: { id: livroId },
         include: { exemplares: true },
@@ -82,17 +84,7 @@ export async function listarLivros() {
     const livros = await prisma.livro.findMany({
         where: { ativo: true }, 
         orderBy: { titulo: 'asc' },
-        include: {
-            exemplares: {
-                include: {
-                    locacoes: {
-                        where: { dataDevolucao: null },
-                        orderBy: { dataPrevista: 'asc' },
-                        take: 1,
-                    },
-                },
-            },
-        },
+        include: { exemplares: { include: { locacoes: { where: { dataDevolucao: null }, orderBy: { dataPrevista: 'asc' }, take: 1 } } } },
     });
 
     return livros.map((l) => {
@@ -111,8 +103,8 @@ export async function listarLivros() {
         return {
             id: l.id, titulo: l.titulo, autor: l.autor, editora: l.editora,
             anoPublicacao: l.anoPublicacao, edicao: l.edicao, isbn: l.isbn,
-            totalExemplares: total, exemplaresDisponiveis: disponiveis,
-            status, dataPrevistaDisponibilidade,
+            totalExemplares: total, exemplaresDisponiveis: l.exemplares.filter((e) => e.status === 'DISPONIVEL').length,
+            status: l.status, dataPrevistaDisponibilidade,
         };
     });
 }
@@ -154,5 +146,26 @@ export async function excluirLivro(id: number){
         where: { id },
         data: { ativo: false },
     });
+    await recalcularStatusLivro(prisma, id);
     return { livro: atualizado };
+}
+
+type StatusLivro = 'DISPONIVEL' | 'LOCADO' | 'INDISPONIVEL' | 'REMOVIDO';
+export function calcularStatus(ativo: boolean, exemplares: { status: string }[]): StatusLivro{
+    if (!ativo) return 'REMOVIDO';
+    if (exemplares.length === 0) return 'INDISPONIVEL';
+    if (exemplares.some((e) => e.status === 'DISPONIVEL')) return 'DISPONIVEL';
+    if (exemplares.every((e) => e.status === 'LOCADO')) return 'LOCADO';
+    return 'INDISPONIVEL';
+}
+
+export async function recalcularStatusLivro(client: any, livroId: number) {
+    const livro = await client.livro.findUnique({
+        where: { id: livroId },
+        include: { exemplares: true },
+    });
+    if(!livro) return;
+    const status = calcularStatus(livro.ativo, livro.exemplares);
+    await client.livro.update({ where: { id: livroId }, data: { status } });
+    return status;
 }

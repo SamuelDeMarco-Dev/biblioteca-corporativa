@@ -18,7 +18,14 @@ enum Perfil {
   USUARIO
 }
 
-enum Setor{
+enum StatusLivro {
+  DISPONIVEL
+  LOCADO
+  INDISPONIVEL
+  REMOVIDO
+}
+
+enum Setor {
   SUPORTE
   SERVICOS
   SANCONHUB
@@ -70,6 +77,7 @@ model Livro {
   criadoEm      DateTime @default(now()) @map("criado_em")
   exemplares    Exemplar[]
   ativo         Boolean @default(true)
+  status        StatusLivro @default(DISPONIVEL)
 
   @@map("livros")
 }

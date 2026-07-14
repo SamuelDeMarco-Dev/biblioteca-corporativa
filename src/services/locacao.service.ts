@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { recalcularStatusLivro } from "./livro.service";
 
 export async function criarLocacao(usuarioId: number, livroId: number, dias: number){
     return prisma.$transaction(async (tx) => {
@@ -18,6 +19,8 @@ export async function criarLocacao(usuarioId: number, livroId: number, dias: num
             where: { id: exemplar.id },
             data: { status: 'LOCADO' },
         });
+
+        await recalcularStatusLivro(tx, exemplar.livroId);
 
         await tx.historicoMovimentacao.create({
             data: { tipo: 'LOCACAO', locacaoId: locacao.id, usuarioId },
@@ -74,6 +77,7 @@ export async function devolverLocacao(locacaoId: number, usuarioId: number, ehAd
             data: { dataDevolucao: new Date() },
         });
         await tx.exemplar.update({ where: { id: locacao.exemplarId }, data: { status: 'DISPONIVEL' } });
+        await recalcularStatusLivro(tx, locacao.exemplarId ? (await tx.exemplar.findUnique({ where: { id: locacao.exemplarId } }))!.livroId : 0);
         await tx.historicoMovimentacao.create({
             data: { tipo: 'DEVOLUCAO', locacaoId, usuarioId: locacao.usuarioId },
         });
