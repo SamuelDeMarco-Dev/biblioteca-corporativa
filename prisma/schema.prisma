@@ -69,6 +69,7 @@ model Livro {
   observacao    String?                             // NOVO
   criadoEm      DateTime @default(now()) @map("criado_em")
   exemplares    Exemplar[]
+  ativo         Boolean @default(true)
 
   @@map("livros")
 }

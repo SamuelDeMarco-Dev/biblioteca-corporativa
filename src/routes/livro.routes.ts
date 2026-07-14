@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { cadastrar, adicionarExemplaresController, listar, buscarExterno } from '../controllers/livro.controller';
-import { autenticar, exigirPermissao } from '../middlewares/auth';
+import { cadastrar, adicionarExemplaresController, listar, buscarExterno, excluir } from '../controllers/livro.controller';
+import { autenticar, exigirPermissao, exigirAdmin } from '../middlewares/auth';
 import { PERMISSOES } from '../constants/permissoes';
 
 const router = Router();
@@ -10,5 +10,7 @@ router.post('/:id/exemplares', autenticar, exigirPermissao(PERMISSOES.CADASTRAR_
 
 router.get('/', autenticar, listar);
 router.get('/buscar-externo', autenticar, exigirPermissao(PERMISSOES.CADASTRAR_LIVROS), buscarExterno);
+
+router.delete('/:id', autenticar, exigirAdmin, excluir);
 
 export default router;

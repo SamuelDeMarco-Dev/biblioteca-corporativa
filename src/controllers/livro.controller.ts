@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { criarLivroSchema, adicionarExemplaresSchema } from '../schemas/livro.schema';
-import { criarLivro, buscarLivroDuplicado, adicionarExemplares, listarLivros, buscarLivrosExternos } from '../services/livro.service';
+import { criarLivro, buscarLivroDuplicado, adicionarExemplares, listarLivros, buscarLivrosExternos, excluirLivro } from '../services/livro.service';
 
 export async function cadastrar(req: Request, res: Response) {
     const parse = criarLivroSchema.safeParse(req.body);
@@ -67,5 +67,19 @@ export async function buscarExterno(req: Request, res: Response) {
         return res.status(200).json({ indisponivel: false, sugestoes });
     } catch (err) {
         return res.status(200).json({ indisponivel: true, sugestoes: [] });
+    }
+}
+
+export async function excluir(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if(Number.isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
+
+    try {
+        const r = await excluirLivro(id);
+        if(r.erro === 'NAO_ENCONTRADO') return res.status(404).json({ erro: 'Livro não encontrado' });
+        if(r.erro === 'LOCADO') return res.status(409).json({ erro: 'Livro possui exemplar locado - não pode ser excluido' });
+        return res.status(200).json({ mensagem: 'Livro removido do acervo' });
+    } catch (err) {
+        return res.status(500).json({ erro: 'Erro ao excluir livro' });
     }
 }

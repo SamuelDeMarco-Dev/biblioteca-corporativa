@@ -16,6 +16,7 @@ export async function buscarLivroDuplicado(dados: CriarLivroInput) {
             editora: { equals: dados.editora, mode: 'insensitive' },
             edicao:  { equals: dados.edicao,  mode: 'insensitive' },
             anoPublicacao: dados.anoPublicacao,
+            ativo: true,
         },
         include: { exemplares: true },
     });
@@ -79,6 +80,7 @@ export async function adicionarExemplares(livroId: number, quantidade: number) {
 
 export async function listarLivros() {
     const livros = await prisma.livro.findMany({
+        where: { ativo: true }, 
         orderBy: { titulo: 'asc' },
         include: {
             exemplares: {
@@ -136,4 +138,21 @@ export async function buscarLivrosExternos(titulo: string){
     } finally {
         clearTimeout(timeout);
     }
+}
+
+export async function excluirLivro(id: number){
+    const livro = await prisma.livro.findUnique({
+        where: { id },
+        include: { exemplares: true },
+    });
+    if(!livro) return { erro: 'NAO_ENCONTRADO' as const };
+
+    const temLocado = livro.exemplares.some((e) => e.status === 'LOCADO');
+    if(temLocado) return { erro: 'LOCADO' as const };
+
+    const atualizado = await prisma.livro.update({
+        where: { id },
+        data: { ativo: false },
+    });
+    return { livro: atualizado };
 }
