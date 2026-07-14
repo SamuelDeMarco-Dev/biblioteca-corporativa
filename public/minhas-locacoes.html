@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" /><title>Minhas locações</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    .badge { padding: 2px 8px; border-radius: 12px; color: #fff; font-size: 12px; }
+    .ATIVA { background: #1565c0; } .ATRASADA { background: #c62828; } .DEVOLVIDA { background: #616161; }
+  </style>
+</head>
+<body>
+  <h1 id="titulo">Minhas locações</h1>
+  <p id="msg"></p>
+
+  <h2>Ativas</h2>
+  <table><thead><tr id="thAtivas"></tr></thead><tbody id="ativas"></tbody></table>
+
+  <h2>Histórico (devolvidas)</h2>
+  <table><thead><tr id="thHist"></tr></thead><tbody id="historico"></tbody></table>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/';
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+    let ehAdmin = false;
+
+    async function init() {
+      const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
+      ehAdmin = me.perfil === 'ADMINISTRADOR';
+      if (ehAdmin) document.getElementById('titulo').textContent = 'Locações (todos os usuários)';
+
+      const locacoes = await (await fetch('/locacoes', { headers: authHeaders })).json();
+      montarCabecalhos();
+      render(locacoes.filter((l) => l.ativa), 'ativas', true);
+      render(locacoes.filter((l) => !l.ativa), 'historico', false);
+    }
+
+    function montarCabecalhos() {
+      const base = ['Livro', 'Exemplar', 'Locação', 'Prazo', 'Status'];
+      const cols = ehAdmin ? ['Usuário', ...base] : base;
+      document.getElementById('thAtivas').innerHTML = cols.map((c) => `<th>${c}</th>`).join('') + '<th>Ação</th>';
+      document.getElementById('thHist').innerHTML   = cols.map((c) => `<th>${c}</th>`).join('') + '<th>Devolvido em</th>';
+    }
+
+    function render(lista, tbodyId, ativas) {
+      const tbody = document.getElementById(tbodyId);
+      if (!lista.length) { tbody.innerHTML = `<tr><td colspan="8"><em>Nenhuma locação.</em></td></tr>`; return; }
+      tbody.innerHTML = lista.map((l) => {
+        const usuarioCol = ehAdmin ? `<td>${l.usuario?.nome ?? '—'}</td>` : '';
+        const acao = ativas
+          ? `<td><button onclick="devolver(${l.id})">Devolver</button></td>`
+          : `<td>${fmt(l.dataDevolucao)}</td>`;
+        return `<tr>
+          ${usuarioCol}
+          <td>${l.livro}</td><td>${l.exemplar}</td>
+          <td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td>
+          <td><span class="badge ${l.status}">${l.status}</span></td>
+          ${acao}
+        </tr>`;
+      }).join('');
+    }
+
+    async function devolver(id) {
+      const resp = await fetch(`/locacoes/${id}/devolver`, { method: 'PATCH', headers: authHeaders });
+      const dados = await resp.json();
+      const msg = document.getElementById('msg');
+      if (!resp.ok) {
+        msg.style.color = 'red';
+        msg.textContent = (dados.erro || '').trim() === 'Você não tem permissão para esta ação'
+          ? 'Você não tem permissão para devolver livros.' : (dados.erro || 'Falha na devolução');
+        return;
+      }
+      msg.style.color = 'green'; msg.textContent = 'Devolução registrada!';
+      init(); // recarrega: a locação sai de "Ativas" e entra no "Histórico"
+    }
+
+    init();
+  </script>
+</body>
+</html>
