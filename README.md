@@ -625,6 +625,62 @@ Registra a locação de um livro pelo usuário logado. O sistema seleciona autom
 
 > A operação é **transacional**: cria a `Locacao`, muda o status do exemplar para `LOCADO` e registra a movimentação (`LOCACAO`) no histórico. A `dataPrevista` é calculada como **hoje + `dias`**. Quando **todos** os exemplares de um livro ficam locados, o acervo (`GET /livros`) passa a exibir `status: LOCADO` com a `dataPrevistaDisponibilidade`.
 
+### `GET /locacoes` — Listar locações
+
+Lista as locações com o status derivado de cada uma, para a tela "Minhas locações". **Requer autenticação.** O escopo depende do perfil:
+
+- **`USUARIO`** — retorna **apenas as próprias** locações.
+- **`ADMINISTRADOR`** — retorna as de **todos** os usuários (use `?meu=true` para ver apenas as suas).
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Query params:**
+
+| Param | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `meu` | boolean | ❌ | Só faz efeito para administradores: `true` limita à própria conta |
+
+Cada item retorna:
+
+| Campo | Descrição |
+|-------|-----------|
+| `id` | ID da locação |
+| `livro`, `autor`, `exemplar` | Livro locado e o código do exemplar |
+| `dataLocacao` | Data da locação |
+| `prazo` | Data prevista de devolução (`dataPrevista`) |
+| `dataDevolucao` | Data da devolução, ou `null` se ainda ativa |
+| `status` | `ATIVA`, `ATRASADA` (prazo vencido, não devolvida) ou `DEVOLVIDA` |
+| `ativa` | `true` enquanto não devolvida (usado para exibir a ação de devolução) |
+| `usuario` | Dono da locação (`id`, `nome`, `email`) — relevante para o administrador |
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Lista de locações no escopo do usuário |
+| `401 Unauthorized` | Token ausente ou inválido |
+
+> 🔒 Um `USUARIO` **nunca** recebe locações de terceiros — o filtro por `usuarioId` do token é aplicado no servidor, independentemente de query params.
+
+### `PATCH /locacoes/:id/devolver` — Registrar devolução
+
+Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve o exemplar ao status `DISPONIVEL` e registra a movimentação (`DEVOLUCAO`) no histórico. **Requer a permissão `DEVOLVER_LIVROS`.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>`.
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Devolução registrada — retorna a `dataDevolucao` |
+| `400 Bad Request` | ID inválido |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Sem a permissão `DEVOLVER_LIVROS`, ou tentativa de devolver locação de outro usuário (não-admin) |
+| `404 Not Found` | Locação não encontrada |
+| `409 Conflict` | Locação já devolvida |
+
+> Um `USUARIO` só pode devolver as **próprias** locações; um `ADMINISTRADOR` pode devolver qualquer uma. A locação devolvida permanece registrada (passa a compor o histórico).
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
@@ -642,7 +698,7 @@ Registra a locação de um livro pelo usuário logado. O sistema seleciona autom
 - 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
 - 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados e reforço de exemplares
 - 🗂️ Acervo em grid de cards, com status (Disponível/Locado) e ações conforme a permissão do usuário
-- 🔄 Locação e devolução de livros
+- 🔄 Locação e devolução de livros, com tela de "Minhas locações" (ativas + histórico) e escopo por perfil
 - 📊 Dashboard administrativo
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api) — autocomplete de títulos no cadastro de livros
 
