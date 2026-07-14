@@ -550,6 +550,25 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 | `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
 | `404 Not Found` | Livro não encontrado |
 
+### `DELETE /livros/:id` — Remover livro do acervo
+
+Remove um livro do acervo por **soft delete** (marca `ativo = false`), preservando o histórico de locações associado. **Restrito a administradores.** Um livro com algum exemplar **locado** não pode ser removido.
+
+**Autenticação:** requer header `Authorization: Bearer <token>` de um usuário com `perfil: ADMINISTRADOR`.
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `200 OK` | Livro removido do acervo (inativado) |
+| `400 Bad Request` | ID inválido |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Usuário não é `ADMINISTRADOR` |
+| `404 Not Found` | Livro não encontrado |
+| `409 Conflict` | Livro possui exemplar locado — não pode ser excluído |
+
+> Livros inativados **deixam de aparecer** em `GET /livros`, portanto não ficam disponíveis para locação, mas continuam no banco (com `ativo: false`) para manter o histórico. Na tela de acervo, o botão **Excluir** aparece apenas para administradores e pede **confirmação** antes de remover.
+
 ### `GET /livros/buscar-externo` — Autocomplete via Open Library
 
 Consulta a [Open Library API](https://openlibrary.org/developers/api) para sugerir títulos durante o cadastro (autocomplete). Atua como **proxy**: aplica limite de resultados, timeout e tratamento de falha, para o front-end preencher os campos do livro a partir da sugestão escolhida. **Requer a permissão `CADASTRAR_LIVROS`.**
@@ -698,7 +717,7 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 - 📧 Recuperação de senha por e-mail (token de uso único com expiração)
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
-- 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados e reforço de exemplares
+- 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados, reforço de exemplares e remoção (soft delete) restrita a administradores
 - 🗂️ Acervo em grid de cards, com status (Disponível/Locado) e ações conforme a permissão do usuário
 - 🔄 Locação e devolução de livros, com tela de "Minhas locações" (ativas + histórico) e escopo por perfil
 - 📊 Dashboard administrativo
