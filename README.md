@@ -589,6 +589,42 @@ Consulta a [Open Library API](https://openlibrary.org/developers/api) para suger
 
 > ⚠️ A API externa pode não retornar todos os campos (ex.: `editora`, `isbn` costumam vir vazios no `search.json`). Os campos ausentes ficam para preenchimento manual; `edição` e `observação` são sempre manuais.
 
+### `POST /locacoes` — Locar um livro
+
+Registra a locação de um livro pelo usuário logado. O sistema seleciona automaticamente um **exemplar disponível** do livro, calcula a data prevista de devolução e marca o exemplar como `LOCADO`. **Requer a permissão `LOCAR_LIVROS`.**
+
+**Autenticação:** requer header `Authorization: Bearer <token>` — o usuário da locação é obtido do token (não é enviado no corpo).
+
+**Corpo (JSON):**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `livroId` | number | ✅ | ID do livro a ser locado |
+| `dias` | number | ✅ | Quantidade de dias de utilização (mínimo 1) |
+
+**Exemplo de resposta (`201 Created`):**
+
+```json
+{
+  "mensagem": "Locação registrada com sucesso",
+  "locacaoId": 12,
+  "exemplar": "4-001",
+  "dataPrevista": "2026-07-21T18:30:00.000Z"
+}
+```
+
+**Respostas:**
+
+| Status | Situação |
+|--------|----------|
+| `201 Created` | Locação registrada — retorna o exemplar locado e a data prevista de devolução |
+| `400 Bad Request` | Campos inválidos (ex.: `dias` ausente ou menor que 1) |
+| `401 Unauthorized` | Token ausente ou inválido |
+| `403 Forbidden` | Usuário sem a permissão `LOCAR_LIVROS` |
+| `409 Conflict` | Nenhum exemplar disponível para o livro |
+
+> A operação é **transacional**: cria a `Locacao`, muda o status do exemplar para `LOCADO` e registra a movimentação (`LOCACAO`) no histórico. A `dataPrevista` é calculada como **hoje + `dias`**. Quando **todos** os exemplares de um livro ficam locados, o acervo (`GET /livros`) passa a exibir `status: LOCADO` com a `dataPrevistaDisponibilidade`.
+
 ## 📜 Scripts disponíveis
 
 | Script | Comando | Descrição |
