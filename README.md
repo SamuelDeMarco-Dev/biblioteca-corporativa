@@ -680,6 +680,8 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 | `409 Conflict` | Locação já devolvida |
 
 > Um `USUARIO` só pode devolver as **próprias** locações; um `ADMINISTRADOR` pode devolver qualquer uma. A locação devolvida permanece registrada (passa a compor o histórico).
+>
+> Na tela "Minhas locações", o botão **Devolver** (exibido apenas nas locações ativas) pede **confirmação** antes de efetivar a devolução; ao concluir, a locação migra para o histórico com a data de devolução.
 
 ## 📜 Scripts disponíveis
 
