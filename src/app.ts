@@ -7,6 +7,7 @@ import locacaoRoutes from './routes/locacao.routes';
 import express, { Request, Response } from 'express';
 import { prisma } from './lib/prisma';
 import { ErrorRequestHandler } from 'express';
+import dashboardRoutes from './routes/dashboard.routes';
 
 
 
@@ -20,6 +21,7 @@ app.use('/auth', authRoutes);
 app.use('/permissoes', permissoesRoutes);
 app.use('/livros', livrosRoutes);
 app.use('/locacoes', locacaoRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 app.get('/health', async (req: Request, res: Response) => {
     try{

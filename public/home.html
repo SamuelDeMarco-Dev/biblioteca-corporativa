@@ -3,9 +3,13 @@
 <head><meta charset="utf-8" /><title>Início — Biblioteca</title></head>
 <body>
   <h1>Bem-vindo(a), <span id="nome"></span>!</h1>
-  <p id="adminArea" style="display:none"><a href="/admin-usuarios.html">Gerenciar usuários</a></p>
   <p><a href="/livros.html">Ver acervo de livros</a></p>
   <p><a href="/minhas-locacoes.html">Minhas locações</a></p>
+  <p id="adminArea" style="display:none">
+    <a href="/admin-usuarios.html">Gerenciar usuários</a> |
+    <a href="/dashboard.html">Dashboard</a>
+  </p>
+
   <button id="sair">Sair</button>
   <script>
     const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
