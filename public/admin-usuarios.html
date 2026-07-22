@@ -1,23 +1,30 @@
 <!doctype html>
 <html lang="pt-br">
-<head><meta charset="utf-8" /><title>Gerenciar usuários</title></head>
+<head>
+  <meta charset="utf-8" /><title>Gerenciar usuários</title>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
+  <style>
+    fieldset { border: 1px solid var(--borda); border-radius: var(--raio); background: var(--card); margin-bottom: 12px; padding: 12px; }
+    fieldset input, fieldset select { width: auto; display: inline-block; margin-right: 8px; }
+  </style>
+</head>
 <body>
-  <h1>Gerenciar usuários</h1>
-  <p id="msg"></p>
-  <div id="lista">Carregando...</div>
+  <main class="container">
+    <h1>Gerenciar usuários</h1>
+    <div id="lista">Carregando...</div>
+  </main>
 
   <script>
     const token = localStorage.getItem('token');
     const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || 'null');
 
-    // Critério: apenas administradores acessam a tela (gate no cliente; o backend também bloqueia)
     if (!usuarioLogado || usuarioLogado.perfil !== 'ADMINISTRADOR') {
       location.href = '/home.html';
     }
 
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-    const msg = document.getElementById('msg');
-    function confirmar(texto, cor = 'green') { msg.style.color = cor; msg.textContent = texto; }
+    const confirmar = (texto, tipo = 'sucesso') => mensagem(texto, tipo);
 
     let permissoes = [];
 
@@ -38,25 +45,24 @@
       usuarios.forEach((u) => {
         const nomesDoUsuario = new Set(u.permissoes.map((p) => p.nome));
         const checks = permissoes.map((p) => `
-          <label style="display:inline-block;margin-right:8px">
+          <label style="display:inline-block;margin-right:8px;font-weight:normal">
             <input type="checkbox" data-uid="${u.id}" data-pid="${p.id}" ${nomesDoUsuario.has(p.nome) ? 'checked' : ''} />
             ${p.nome}
           </label>`).join('');
 
         div.innerHTML += `
-          <fieldset style="margin-bottom:12px">
+          <fieldset>
             <legend>#${u.id} — ${u.email}</legend>
             <input id="nome-${u.id}" value="${u.nome}" placeholder="Nome" />
             <select id="perfil-${u.id}">
               <option value="USUARIO"       ${u.perfil === 'USUARIO' ? 'selected' : ''}>USUARIO</option>
               <option value="ADMINISTRADOR" ${u.perfil === 'ADMINISTRADOR' ? 'selected' : ''}>ADMINISTRADOR</option>
             </select>
-            <button onclick="salvarDados(${u.id})">Salvar dados</button>
-            <div style="margin-top:6px">${checks}</div>
+            <button class="btn btn-primario" onclick="salvarDados(${u.id})">Salvar dados</button>
+            <div style="margin-top:10px">${checks}</div>
           </fieldset>`;
       });
 
-      // liga o evento de cada checkbox (habilita/desabilita imediatamente)
       div.querySelectorAll('input[type=checkbox]').forEach((cb) => {
         cb.addEventListener('change', () => togglePermissao(cb));
       });
@@ -69,7 +75,7 @@
       };
       const resp = await fetch(`/usuarios/${id}`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
       const dados = await resp.json();
-      if (!resp.ok) return confirmar(dados.erro || 'Falha ao salvar', 'red');
+      if (!resp.ok) return confirmar(dados.erro || 'Falha ao salvar', 'erro');
       confirmar(`Dados do usuário #${id} atualizados com sucesso.`);
     }
 
@@ -78,7 +84,7 @@
       const body = cb.checked ? { habilitar: [pid] } : { desabilitar: [pid] };
       const resp = await fetch(`/usuarios/${uid}/permissoes`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
       const dados = await resp.json();
-      if (!resp.ok) { cb.checked = !cb.checked; return confirmar(dados.erro || 'Falha na permissão', 'red'); }
+      if (!resp.ok) { cb.checked = !cb.checked; return confirmar(dados.erro || 'Falha na permissão', 'erro'); }
       confirmar(`Permissão ${cb.checked ? 'habilitada' : 'desabilitada'} para o usuário #${uid}.`);
     }
 

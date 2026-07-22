@@ -1,28 +1,21 @@
 <!doctype html>
 <html lang="pt-br">
-<head><meta charset="utf-8" /><title>Início — Biblioteca</title></head>
+<head>
+  <meta charset="utf-8" />
+  <title>Início — Biblioteca</title>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
+</head>
 <body>
-  <h1>Bem-vindo(a), <span id="nome"></span>!</h1>
-  <p><a href="/livros.html">Ver acervo de livros</a></p>
-  <p><a href="/minhas-locacoes.html">Minhas locações</a></p>
-  <p id="adminArea" style="display:none">
-    <a href="/admin-usuarios.html">Gerenciar usuários</a> |
-    <a href="/dashboard.html">Dashboard</a>
-  </p>
+  <main class="container">
+    <h1>Bem-vindo(a), <span id="nome"></span>!</h1>
+    <p>Use o menu acima para navegar pelo acervo, suas locações e as áreas administrativas.</p>
+  </main>
 
-  <button id="sair">Sair</button>
   <script>
     const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
-    if (!usuario) window.location.href = '/';                  // sem sessão → volta ao login
+    if (!usuario) window.location.href = '/';
     else document.getElementById('nome').textContent = usuario.nome;
-
-    document.getElementById('sair').addEventListener('click', () => {
-      localStorage.clear();
-      window.location.href = '/';
-    });
-    if (usuario?.perfil === 'ADMINISTRADOR') {
-      document.getElementById('adminArea').style.display = 'block';
-    }
   </script>
 </body>
 </html>

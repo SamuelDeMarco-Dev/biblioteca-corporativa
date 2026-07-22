@@ -2,28 +2,25 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" /><title>Dashboard</title>
-  <style>
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; text-align: center; }
-    .card .num { font-size: 32px; font-weight: bold; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
-    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  </style>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
+  <style> .card { text-align: center; } </style>
 </head>
 <body>
-  <h1>Dashboard da Biblioteca</h1>
-  <p id="msg"></p>
+  <main class="container">
+    <h1>Dashboard da Biblioteca</h1>
 
-  <div class="cards" id="cards"></div>
+    <div class="cards" id="cards"></div>
 
-  <h2>Usuário que mais locou</h2>
-  <p id="topUsuario">—</p>
+    <h2>Usuário que mais locou</h2>
+    <p id="topUsuario">—</p>
 
-  <h2>Ranking de usuários</h2>
-  <table><thead><tr><th>#</th><th>Usuário</th><th>Locações</th></tr></thead><tbody id="ranking"></tbody></table>
+    <h2>Ranking de usuários</h2>
+    <table><thead><tr><th>#</th><th>Usuário</th><th>Locações</th></tr></thead><tbody id="ranking"></tbody></table>
 
-  <h2>Últimas locações</h2>
-  <table><thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead><tbody id="ultimas"></tbody></table>
+    <h2>Últimas locações</h2>
+    <table><thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead><tbody id="ultimas"></tbody></table>
+  </main>
 
   <script>
     const token = localStorage.getItem('token');
@@ -32,7 +29,7 @@
     const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
 
     async function init() {
-      // Critério: apenas administradores (gate no cliente; o backend também bloqueia)
+      // apenas administradores (gate no cliente; o backend também bloqueia)
       const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
       if (me.perfil !== 'ADMINISTRADOR') { location.href = '/home.html'; return; }
 

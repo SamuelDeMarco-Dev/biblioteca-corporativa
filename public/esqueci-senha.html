@@ -1,27 +1,33 @@
 <!doctype html>
 <html lang="pt-br">
-<head><meta charset="utf-8" /><title>Recuperar senha</title></head>
+<head>
+  <meta charset="utf-8" />
+  <title>Recuperar senha</title>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
+</head>
 <body>
-  <h1>Recuperar senha</h1>
-  <form id="form">
-    <input type="email" id="email" placeholder="Seu e-mail" required />
-    <button type="submit">Enviar link</button>
-  </form>
-  <p id="msg"></p>
+  <main class="form-centro">
+    <form id="form" class="form">
+      <h1>Recuperar senha</h1>
+      <label for="email">E-mail</label>
+      <input type="email" id="email" placeholder="Seu e-mail" required />
+      <button type="submit" class="btn btn-primario">Enviar link</button>
+      <p style="margin-top:12px"><a href="/">Voltar ao login</a></p>
+    </form>
+  </main>
+
   <script>
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const msg = document.getElementById('msg');
       const resp = await fetch('/auth/esqueci-senha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: document.getElementById('email').value }),
       });
       const dados = await resp.json();
-      if (!resp.ok) { msg.style.color = 'red'; msg.textContent = dados.erro; return; }
-      // O link vai por e-mail. Em dev (Ethereal), a URL de preview sai no console do servidor.
-      msg.style.color = 'green';
-      msg.textContent = 'Se o e-mail estiver cadastrado, enviamos um link de redefinição.';
+      if (!resp.ok) { mensagem(dados.erro || 'Falha na solicitação', 'erro'); return; }
+      mensagem('Se o e-mail estiver cadastrado, enviamos um link de redefinição.', 'sucesso');
     });
   </script>
 </body>

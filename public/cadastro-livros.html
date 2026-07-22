@@ -1,96 +1,103 @@
 <!doctype html>
 <html lang="pt-br">
-<head><meta charset="utf-8" /><title>Cadastrar livro</title></head>
+<head>
+  <meta charset="utf-8" />
+  <title>Cadastrar livro</title>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
+</head>
 <body>
-  <h1>Cadastrar livro</h1>
-  <form id="form">
-    <input id="titulo" placeholder="Título" required autocomplete="off" />
-    <div id="sugestoes" style="border:1px solid #ccc; display:none; max-height:200px; overflow:auto;"></div>
-    <small id="apiAviso" style="color:#c90; display:none;">Sugestões indisponíveis no momento — você pode cadastrar manualmente.</small>
-    <input id="autor"         placeholder="Autor(es)" required />
-    <input id="editora"       placeholder="Editora" required />
-    <input id="anoPublicacao" type="number" placeholder="Ano de publicação" required />
-    <input id="edicao"        placeholder="Edição" required />
-    <input id="observacao"    placeholder="Observação" required />
-    <input id="isbn"          placeholder="ISBN (opcional)" />
-    <input id="quantidadeExemplares" type="number" min="1" value="1" placeholder="Qtd. de exemplares" required />
-    <button type="submit">Salvar</button>
-  </form>
-  <p id="msg"></p>
-  <div id="duplicadoAlerta" style="display:none;border:1px solid #c90;padding:10px;margin-top:10px">
-    <p id="duplicadoTexto"></p>
-    <button id="btnAdicionar" type="button">Adicionar os exemplares ao livro existente</button>
-  </div>
+  <main class="container">
+    <h1>Cadastrar livro</h1>
+    <form id="form" class="form">
+      <label for="titulo">Título</label>
+      <input id="titulo" placeholder="Título" required autocomplete="off" />
+      <div id="sugestoes" class="card" style="display:none; padding:0; max-height:200px; overflow:auto; margin-top:4px;"></div>
+      <small id="apiAviso" style="color:var(--aviso); display:none;">Sugestões indisponíveis no momento — você pode cadastrar manualmente.</small>
+
+      <label for="autor">Autor(es)</label>
+      <input id="autor" placeholder="Autor(es)" required />
+      <label for="editora">Editora</label>
+      <input id="editora" placeholder="Editora" required />
+      <label for="anoPublicacao">Ano de publicação</label>
+      <input id="anoPublicacao" type="number" placeholder="Ano de publicação" required />
+      <label for="edicao">Edição</label>
+      <input id="edicao" placeholder="Edição" required />
+      <label for="observacao">Observação</label>
+      <input id="observacao" placeholder="Observação" required />
+      <label for="isbn">ISBN (opcional)</label>
+      <input id="isbn" placeholder="ISBN" />
+      <label for="quantidadeExemplares">Quantidade de exemplares</label>
+      <input id="quantidadeExemplares" type="number" min="1" value="1" required />
+      <button type="submit" class="btn btn-primario">Salvar</button>
+    </form>
+
+    <div id="duplicadoAlerta" class="alerta aviso" style="display:none">
+      <p id="duplicadoTexto"></p>
+      <button id="btnAdicionar" type="button" class="btn btn-primario">Adicionar os exemplares ao livro existente</button>
+    </div>
+  </main>
 
   <script>
     const token = localStorage.getItem('token');
     if (!token) location.href = '/';
 
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-    const msg = document.getElementById('msg');
     const alerta = document.getElementById('duplicadoAlerta');
     const btnAdicionar = document.getElementById('btnAdicionar');
 
     const inputTitulo = document.getElementById('titulo');
-const boxSugestoes = document.getElementById('sugestoes');
-const apiAviso = document.getElementById('apiAviso');
-let debounceTimer;
+    const boxSugestoes = document.getElementById('sugestoes');
+    const apiAviso = document.getElementById('apiAviso');
+    let debounceTimer;
 
-inputTitulo.addEventListener('input', () => {
-  clearTimeout(debounceTimer);
-  const termo = inputTitulo.value.trim();
-  if (termo.length < 2) { boxSugestoes.style.display = 'none'; return; }
+    inputTitulo.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const termo = inputTitulo.value.trim();
+      if (termo.length < 2) { boxSugestoes.style.display = 'none'; return; }
+      debounceTimer = setTimeout(() => buscarSugestoes(termo), 300);
+    });
 
-  // espera 300ms após parar de digitar
-  debounceTimer = setTimeout(() => buscarSugestoes(termo), 300);
-});
+    async function buscarSugestoes(termo) {
+      apiAviso.style.display = 'none';
+      try {
+        const resp = await fetch(`/livros/buscar-externo?titulo=${encodeURIComponent(termo)}`, { headers: authHeaders });
+        const dados = await resp.json();
+        if (dados.indisponivel) { apiAviso.style.display = 'block'; boxSugestoes.style.display = 'none'; return; }
+        renderSugestoes(dados.sugestoes);
+      } catch {
+        apiAviso.style.display = 'block';
+        boxSugestoes.style.display = 'none';
+      }
+    }
 
-async function buscarSugestoes(termo) {
-  apiAviso.style.display = 'none';
-  try {
-    const resp = await fetch(`/livros/buscar-externo?titulo=${encodeURIComponent(termo)}`, { headers: authHeaders });
-    const dados = await resp.json();
+    function renderSugestoes(lista) {
+      if (!lista.length) { boxSugestoes.style.display = 'none'; return; }
+      boxSugestoes.innerHTML = '';
+      lista.forEach((s) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:8px; cursor:pointer; border-bottom:1px solid var(--borda);';
+        item.textContent = `${s.titulo}${s.autor ? ' — ' + s.autor : ''}${s.anoPublicacao ? ' (' + s.anoPublicacao + ')' : ''}`;
+        item.onmouseover = () => item.style.background = '#eef';
+        item.onmouseout  = () => item.style.background = '';
+        item.onclick = () => preencher(s);
+        boxSugestoes.appendChild(item);
+      });
+      boxSugestoes.style.display = 'block';
+    }
 
-    if (dados.indisponivel) { apiAviso.style.display = 'block'; boxSugestoes.style.display = 'none'; return; }
-    renderSugestoes(dados.sugestoes);
-  } catch {
-    // falha de rede no próprio proxy: não trava a tela, apenas avisa
-    apiAviso.style.display = 'block';
-    boxSugestoes.style.display = 'none';
-  }
-}
+    function preencher(s) {
+      inputTitulo.value = s.titulo || '';
+      document.getElementById('autor').value = s.autor || '';
+      document.getElementById('editora').value = s.editora || '';
+      if (s.anoPublicacao) document.getElementById('anoPublicacao').value = s.anoPublicacao;
+      if (s.isbn) document.getElementById('isbn').value = s.isbn;
+      boxSugestoes.style.display = 'none';
+    }
 
-function renderSugestoes(lista) {
-  if (!lista.length) { boxSugestoes.style.display = 'none'; return; }
-  boxSugestoes.innerHTML = '';
-  lista.forEach((s) => {
-    const item = document.createElement('div');
-    item.style.cssText = 'padding:6px; cursor:pointer;';
-    item.textContent = `${s.titulo}${s.autor ? ' — ' + s.autor : ''}${s.anoPublicacao ? ' (' + s.anoPublicacao + ')' : ''}`;
-    item.onmouseover = () => item.style.background = '#eef';
-    item.onmouseout  = () => item.style.background = '';
-    item.onclick = () => preencher(s);
-    boxSugestoes.appendChild(item);
-  });
-  boxSugestoes.style.display = 'block';
-}
-
-// Critério: preencher os campos do livro quando possível
-function preencher(s) {
-  inputTitulo.value = s.titulo || '';
-  document.getElementById('autor').value = s.autor || '';
-  document.getElementById('editora').value = s.editora || '';
-  if (s.anoPublicacao) document.getElementById('anoPublicacao').value = s.anoPublicacao;
-  if (s.isbn) document.getElementById('isbn').value = s.isbn;
-  boxSugestoes.style.display = 'none';
-  // edicao e observacao continuam manuais (a Open Library não fornece de forma confiável)
-}
-
-// fecha o dropdown ao clicar fora
-document.addEventListener('click', (e) => {
-  if (!boxSugestoes.contains(e.target) && e.target !== inputTitulo) boxSugestoes.style.display = 'none';
-});
-
+    document.addEventListener('click', (e) => {
+      if (!boxSugestoes.contains(e.target) && e.target !== inputTitulo) boxSugestoes.style.display = 'none';
+    });
 
     function lerFormulario() {
       return {
@@ -107,16 +114,12 @@ document.addEventListener('click', (e) => {
 
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      msg.textContent = '';
       alerta.style.display = 'none';
       const body = lerFormulario();
 
-      const resp = await fetch('/livros', {
-        method: 'POST', headers: authHeaders, body: JSON.stringify(body),
-      });
+      const resp = await fetch('/livros', { method: 'POST', headers: authHeaders, body: JSON.stringify(body) });
       const dados = await resp.json();
 
-      // Critério: alertar antes de cadastrar duplicado, e oferecer adicionar exemplares.
       if (resp.status === 409 && dados.duplicado) {
         alerta.style.display = 'block';
         document.getElementById('duplicadoTexto').textContent =
@@ -127,28 +130,23 @@ document.addEventListener('click', (e) => {
       }
 
       if (!resp.ok) {
-        msg.style.color = 'red';
-        msg.textContent = (dados.erro || '').trim() === 'Você não tem permissão para esta ação'
+        mensagem((dados.erro || '').trim() === 'Você não tem permissão para esta ação'
           ? 'Você não tem permissão para cadastrar livros.'
-          : (dados.erro || 'Falha ao cadastrar');
+          : (dados.erro || 'Falha ao cadastrar'), 'erro');
         return;
       }
 
-      msg.style.color = 'green';
-      msg.textContent = `Livro "${dados.titulo}" cadastrado com ${dados.exemplares.length} exemplar(es).`;
+      mensagem(`Livro "${dados.titulo}" cadastrado com ${dados.exemplares.length} exemplar(es).`, 'sucesso');
       e.target.reset();
       document.getElementById('quantidadeExemplares').value = 1;
     });
 
     async function adicionarExemplares(livroId, quantidade) {
-      const resp = await fetch(`/livros/${livroId}/exemplares`, {
-        method: 'POST', headers: authHeaders, body: JSON.stringify({ quantidade }),
-      });
+      const resp = await fetch(`/livros/${livroId}/exemplares`, { method: 'POST', headers: authHeaders, body: JSON.stringify({ quantidade }) });
       const dados = await resp.json();
       alerta.style.display = 'none';
-      if (!resp.ok) { msg.style.color = 'red'; msg.textContent = dados.erro || 'Falha ao adicionar exemplares'; return; }
-      msg.style.color = 'green';
-      msg.textContent = `Exemplares adicionados. Total agora: ${dados.totalExemplares} (${dados.exemplaresDisponiveis} disponível(is) para locação).`;
+      if (!resp.ok) { mensagem(dados.erro || 'Falha ao adicionar exemplares', 'erro'); return; }
+      mensagem(`Exemplares adicionados. Total agora: ${dados.totalExemplares} (${dados.exemplaresDisponiveis} disponível(is) para locação).`, 'sucesso');
     }
   </script>
 </body>

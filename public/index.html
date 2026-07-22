@@ -3,23 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <title>Login — Biblioteca Interna</title>
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script src="/js/layout.js" defer></script>
 </head>
 <body>
-  <h1>📚 Biblioteca Interna</h1>
-  <form id="loginForm">
-    <input type="email" id="email" placeholder="E-mail" required />
-    <input type="password" id="senha" placeholder="Senha" required />
-    <button type="submit">Entrar</button>
-  </form>
-  <p id="erro" style="color:red"></p>
-  <a href="/esqueci-senha.html">Esqueci minha senha</a>
+  <main class="form-centro">
+    <form id="loginForm" class="form">
+      <h1>📚 Biblioteca Interna</h1>
+      <label for="email">E-mail</label>
+      <input type="email" id="email" placeholder="E-mail" required />
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" placeholder="Senha" required />
+      <button type="submit" class="btn btn-primario">Entrar</button>
+      <p style="margin-top:12px"><a href="/esqueci-senha.html">Esqueci minha senha</a></p>
+    </form>
+  </main>
 
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const erro = document.getElementById('erro');
-      erro.textContent = '';
-
       const resp = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,16 +30,11 @@
           senha: document.getElementById('senha').value,
         }),
       });
-
       const dados = await resp.json();
-      if (!resp.ok) {
-        erro.textContent = dados.erro || 'Falha no login';   // mensagem de erro na tela
-        return;
-      }
-
-      localStorage.setItem('token', dados.token);            // guarda o token
+      if (!resp.ok) { mensagem(dados.erro || 'Falha no login', 'erro'); return; }
+      localStorage.setItem('token', dados.token);
       localStorage.setItem('usuario', JSON.stringify(dados.usuario));
-      window.location.href = '/home.html';                   // redireciona
+      window.location.href = '/home.html';
     });
   </script>
 </body>
