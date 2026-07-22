@@ -15,6 +15,21 @@
 </head>
 <body>
   <h1>Acervo de livros</h1>
+  <div id="filtros" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+  <input id="fTitulo"  placeholder="Buscar por título" />
+  <input id="fAutor"   placeholder="Autor" />
+  <input id="fEditora" placeholder="Editora" />
+  <input id="fAno"     type="number" placeholder="Ano" style="width:90px" />
+  <select id="fStatus">
+    <option value="">Todos os status</option>
+    <option value="DISPONIVEL">Disponível</option>
+    <option value="LOCADO">Locado</option>
+    <option value="INDISPONIVEL">Indisponível</option>
+  </select>
+  <label><input type="checkbox" id="fDisponivel" /> Somente disponíveis p/ locação</label>
+  <button type="button" id="fLimpar">Limpar</button>
+</div>
+
   <p id="msg"></p>
   <div id="grid" class="grid">Carregando...</div>
 
@@ -24,6 +39,7 @@
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
     let eu = { perfil: 'USUARIO', permissoes: [] };
+    let todosLivros = [];   // lista completa carregada do backend (base para os filtros)
     const pode = (p) => eu.perfil === 'ADMINISTRADOR' || eu.permissoes.includes(p);
     const fmtData = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
 
@@ -41,13 +57,13 @@
 
       // 2) livros
       const rL = await fetch('/livros', { headers: authHeaders });
-      const livros = await rL.json();
-      render(livros);
+      todosLivros = await rL.json();
+      aplicarFiltros();
     }
 
     function render(livros) {
       const grid = document.getElementById('grid');
-      if (!livros.length) { grid.textContent = 'Nenhum livro cadastrado.'; return; }
+      if (!livros.length) { grid.textContent = 'Nenhum livro encontrado.'; return; }
       grid.innerHTML = '';
 
       livros.forEach((l) => {
@@ -106,6 +122,41 @@
       msg.textContent = 'Livro removido do acervo.';
       init();
     }
+
+    function aplicarFiltros() {
+  const t      = document.getElementById('fTitulo').value.trim().toLowerCase();
+  const a      = document.getElementById('fAutor').value.trim().toLowerCase();
+  const e      = document.getElementById('fEditora').value.trim().toLowerCase();
+  const ano    = document.getElementById('fAno').value.trim();
+  const status = document.getElementById('fStatus').value;
+  const soDisp = document.getElementById('fDisponivel').checked;
+
+  const filtrados = todosLivros.filter((l) => {
+    if (t && !(l.titulo  || '').toLowerCase().includes(t)) return false;   // busca por título
+    if (a && !(l.autor   || '').toLowerCase().includes(a)) return false;   // autor
+    if (e && !(l.editora || '').toLowerCase().includes(e)) return false;   // editora
+    if (ano && String(l.anoPublicacao ?? '') !== ano)      return false;   // ano (exato)
+    if (status && l.status !== status)                     return false;   // status
+    if (soDisp && l.status !== 'DISPONIVEL')               return false;   // só disponíveis
+    return true;
+  });
+
+  render(filtrados);
+}
+
+
+    // atualização sem recarregar: cada mudança nos filtros re-renderiza a partir de todosLivros
+    ['fTitulo','fAutor','fEditora','fAno','fStatus','fDisponivel'].forEach((id) => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', aplicarFiltros);
+      el.addEventListener('change', aplicarFiltros);
+    });
+    document.getElementById('fLimpar').addEventListener('click', () => {
+      ['fTitulo','fAutor','fEditora','fAno'].forEach((id) => (document.getElementById(id).value = ''));
+      document.getElementById('fStatus').value = '';
+      document.getElementById('fDisponivel').checked = false;
+      aplicarFiltros();
+    });
 
     init();
   </script>
