@@ -64,5 +64,47 @@
     box.textContent = texto;
   };
 
+  // ---- Validação e destaque de campos (padrão do sistema) ----
+
+  // Remove destaques/mensagens de erro de um formulário (ou do documento).
+  window.limparErros = function (raiz = document) {
+    raiz.querySelectorAll('.campo-erro').forEach((el) => el.classList.remove('campo-erro'));
+    raiz.querySelectorAll('.msg-campo').forEach((el) => el.remove());
+  };
+
+  // Recebe { campo: mensagem } (vindo do backend ou da validação local) e
+  // destaca cada input correspondente (id === nome do campo), com a mensagem abaixo.
+  window.aplicarErros = function (campos, raiz = document) {
+    if (!campos) return;
+    let primeiro = null;
+    Object.entries(campos).forEach(([campo, msg]) => {
+      const input = raiz.querySelector(`#${CSS.escape(campo)}`);
+      if (!input) return;
+      input.classList.add('campo-erro');
+      const aviso = document.createElement('span');
+      aviso.className = 'msg-campo';
+      aviso.textContent = msg;
+      input.insertAdjacentElement('afterend', aviso);
+      if (!primeiro) primeiro = input;
+    });
+    if (primeiro) primeiro.focus();
+  };
+
+  // Validações reaproveitáveis no cliente (feedback imediato; o backend revalida).
+  window.validacoes = {
+    email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || '').trim()),
+    cpf: (v) => {
+      const cpf = (v || '').replace(/\D/g, '');
+      if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+      const dig = (base, peso) => {
+        let soma = 0;
+        for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (peso - i);
+        const r = (soma * 10) % 11;
+        return r === 10 ? 0 : r;
+      };
+      return dig(cpf.slice(0, 9), 10) === Number(cpf[9]) && dig(cpf.slice(0, 10), 11) === Number(cpf[10]);
+    },
+  };
+
   document.addEventListener('DOMContentLoaded', montarHeader);
 })();

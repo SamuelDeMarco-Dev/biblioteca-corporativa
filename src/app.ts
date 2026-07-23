@@ -35,12 +35,22 @@ app.get('/health', async (req: Request, res: Response) => {
 
 const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
   if (err instanceof SyntaxError && 'body' in err) {
-    return res.status(400).json({ erro: 'JSON inválido no corpo da requisição' });
+    return res.status(400).json({ erro: 'Não foi possível ler os dados enviados. Verifique e tente novamente.' });
   }
   next(err);
 };
 
+// Middleware global: rede de segurança para QUALQUER erro não tratado.
+// Loga o detalhe internamente e devolve uma mensagem genérica — nunca expõe
+// stack trace, SQL ou estruturas internas ao usuário (critério de aceite).
+const erroGlobal: ErrorRequestHandler = (err, req, res, next) => {
+  console.error('[ERRO NÃO TRATADO]', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ erro: 'Ocorreu um erro inesperado. Tente novamente em instantes.' });
+};
+
 app.use(jsonErrorHandler);
+app.use(erroGlobal);
 export default app;
 
 

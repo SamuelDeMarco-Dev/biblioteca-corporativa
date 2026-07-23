@@ -6,11 +6,12 @@ import { solicitarReset, redefinirSenha } from '../services/auth.service';
 import { enviarEmailReset } from '../lib/mailer';
 import { AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { erroDeValidacao } from '../utils/erros';
 
 export async function login(req: Request, res: Response) {
     const parse = loginSchema.safeParse(req.body);
     if(!parse.success){
-        return res.status(400).json({ erro: 'Dados inválidos', detalhes: parse.error.issues });
+        return res.status(400).json(erroDeValidacao(parse.error));
     }
 
     try{
@@ -27,7 +28,7 @@ export async function login(req: Request, res: Response) {
 export async function esqueciSenha(req: Request, res: Response) {
     const parse = solicitarResetSchema.safeParse(req.body);
     if(!parse.success){
-        return res.status(400).json({ erro: 'Dados inválidos', detalhes: parse.error.issues});
+        return res.status(400).json(erroDeValidacao(parse.error));
     }
 
     try {
@@ -51,7 +52,7 @@ export async function esqueciSenha(req: Request, res: Response) {
 export async function redefinir(req: Request, res: Response){
     const parse = redefinirSenhaSchema.safeParse(req.body);
     if(!parse.success){
-        return res.status(400).json({ erro: 'Dados inválidos', detalhes: parse.error.issues });
+        return res.status(400).json(erroDeValidacao(parse.error));
     }
 
     try {

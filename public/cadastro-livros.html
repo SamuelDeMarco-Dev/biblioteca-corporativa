@@ -119,6 +119,7 @@
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       alerta.style.display = 'none';
+      window.limparErros(e.target);
       const body = lerFormulario();
 
       const resp = await fetch('/livros', { method: 'POST', headers: authHeaders, body: JSON.stringify(body) });
@@ -134,6 +135,7 @@
       }
 
       if (!resp.ok) {
+        window.aplicarErros(dados.campos, e.target);
         mensagem((dados.erro || '').trim() === 'Você não tem permissão para esta ação'
           ? 'Você não tem permissão para cadastrar livros.'
           : (dados.erro || 'Falha ao cadastrar'), 'erro');

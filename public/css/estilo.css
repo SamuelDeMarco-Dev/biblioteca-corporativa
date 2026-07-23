@@ -69,6 +69,11 @@ th { background: #eef2f6; }
 .alerta.erro    { background: #ffebee; border-color: var(--erro);    color: #b71c1c; }
 .alerta.aviso   { background: #fff3e0; border-color: var(--aviso);   color: #e65100; }
 
+/* Destaque de campos inválidos (validação padronizada) */
+.campo-erro { border-color: var(--erro) !important; background: #fff8f8; }
+.campo-erro:focus { outline-color: var(--erro); }
+.msg-campo { color: var(--erro); font-size: .82em; margin: -6px 0 8px; display: block; }
+
 /* Ações reveladas no hover/foco do card */
 .acoes { display: none; gap: 8px; margin-top: 10px; }
 .card:hover .acoes, .card:focus-within .acoes { display: flex; flex-wrap: wrap; }

@@ -12,6 +12,39 @@
 <body>
   <main class="container">
     <h1>Gerenciar usuários</h1>
+
+    <fieldset>
+      <legend>Cadastrar novo usuário</legend>
+      <form id="formNovo" class="form" novalidate>
+        <label for="nome">Nome</label>
+        <input id="nome" placeholder="Nome completo" />
+        <label for="email">E-mail</label>
+        <input id="email" type="email" placeholder="email@empresa.com" />
+        <label for="cpf">CPF</label>
+        <input id="cpf" inputmode="numeric" maxlength="11" placeholder="Somente números (11 dígitos)" />
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" placeholder="Mínimo 6 caracteres" />
+        <label for="setor">Setor</label>
+        <select id="setor">
+          <option value="SUPORTE">Suporte</option>
+          <option value="SERVICOS">Serviços</option>
+          <option value="SANCONHUB">SanconHub</option>
+          <option value="ADMINISTRATIVO">Administrativo</option>
+          <option value="COMERCIAL">Comercial</option>
+          <option value="MARKETING">Marketing</option>
+          <option value="TI">TI</option>
+          <option value="RH">RH</option>
+          <option value="DIRETORIA">Diretoria</option>
+        </select>
+        <label for="perfil">Perfil</label>
+        <select id="perfil">
+          <option value="USUARIO">Usuário</option>
+          <option value="ADMINISTRADOR">Administrador</option>
+        </select>
+        <button type="submit" class="btn btn-primario">Cadastrar usuário</button>
+      </form>
+    </fieldset>
+
     <div id="lista">Carregando...</div>
   </main>
 
@@ -85,8 +118,51 @@
       confirmar(`Permissão ${cb.checked ? 'habilitada' : 'desabilitada'} para o usuário #${uid}.`);
     }
 
+    // Validação local dos campos obrigatórios antes de enviar ao backend.
+    // Retorna { campo: mensagem } (mesmo formato do backend) ou null se tudo ok.
+    function validarNovoUsuario(d) {
+      const erros = {};
+      if (!d.nome.trim())                erros.nome  = 'Nome é obrigatório';
+      if (!window.validacoes.email(d.email)) erros.email = 'E-mail inválido';
+      if (!window.validacoes.cpf(d.cpf))     erros.cpf   = 'CPF inválido';
+      if ((d.senha || '').length < 6)    erros.senha = 'Senha deve ter ao menos 6 caracteres';
+      return Object.keys(erros).length ? erros : null;
+    }
+
+    async function cadastrarUsuario(e) {
+      e.preventDefault();
+      window.limparErros(document.getElementById('formNovo'));
+
+      const dados = {
+        nome:   document.getElementById('nome').value,
+        email:  document.getElementById('email').value.trim(),
+        cpf:    document.getElementById('cpf').value.replace(/\D/g, ''),
+        senha:  document.getElementById('senha').value,
+        setor:  document.getElementById('setor').value,
+        perfil: document.getElementById('perfil').value,
+      };
+
+      const errosLocais = validarNovoUsuario(dados);
+      if (errosLocais) { window.aplicarErros(errosLocais); return; }
+
+      const resp = await fetch('/usuarios', { method: 'POST', headers: authHeaders, body: JSON.stringify(dados) });
+      const resposta = await resp.json();
+      if (!resp.ok) {
+        // destaca campos vindos do backend (validação/duplicidade) e mostra a mensagem
+        window.aplicarErros(resposta.campos, document.getElementById('formNovo'));
+        confirmar(resposta.erro || 'Falha ao cadastrar usuário', 'erro');
+        return;
+      }
+      confirmar(`Usuário "${resposta.nome}" cadastrado com sucesso.`);
+      document.getElementById('formNovo').reset();
+      carregar();
+    }
+
     // aguarda o layout.js (defer) carregar antes de usar window.exigirAcesso
-    document.addEventListener('DOMContentLoaded', carregar);
+    document.addEventListener('DOMContentLoaded', () => {
+      carregar();
+      document.getElementById('formNovo').addEventListener('submit', cadastrarUsuario);
+    });
   </script>
 </body>
 </html>

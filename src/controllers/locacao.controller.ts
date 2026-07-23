@@ -2,11 +2,12 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import { criarLocacaoSchema } from '../schemas/locacao.schema';
 import { criarLocacao, listarLocacoes, devolverLocacao } from '../services/locacao.service';
+import { erroDeValidacao } from '../utils/erros';
 
 export async function locar(req: AuthRequest, res: Response){
     const parse = criarLocacaoSchema.safeParse(req.body);
     if(!parse.success){
-        return res.status(400).json({ erro: 'Dados inválidos', detalhes: parse.error.issues});
+        return res.status(400).json(erroDeValidacao(parse.error));
     }
 
     try {
