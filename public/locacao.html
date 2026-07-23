@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Locar livro</title>
+  <link rel="icon" href="/img/sancon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script type="module" src="/js/pages/locacao.js"></script>
+  <style>
+    .loc-painel { padding: 0; overflow: hidden; }
+    .loc-hero { display: flex; align-items: center; gap: 18px; padding: 22px 24px; background: var(--superficie-2); border-bottom: 1px solid var(--borda); }
+    .loc-capa { width: 58px; height: 58px; border-radius: 10px; background: var(--primaria); color: #fff; display: grid; place-items: center; flex: none; }
+    .loc-capa svg { width: 30px; height: 30px; }
+    .loc-hero h2 { margin: 0 0 4px; font-size: 19px; color: var(--titulo); }
+    .loc-hero p { margin: 0; color: var(--texto-suave); font-size: 14px; }
+    .loc-hero .badge { margin-top: 8px; }
+    .loc-form { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .loc-form .campo { display: flex; flex-direction: column; }
+    .loc-form label { margin: 0 0 6px; }
+    .loc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .loc-previsao { padding: 10px 12px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio); font-weight: 600; color: var(--primaria); }
+    .loc-form input[readonly] { background: var(--superficie-2); color: var(--texto-suave); }
+    .loc-rodape { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+    @media (max-width: 600px) { .loc-grid { grid-template-columns: 1fr; } .loc-rodape .btn { flex: 1; justify-content: center; } }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Locação de livro</h1>
+
+    <section class="painel loc-painel">
+      <div class="loc-hero">
+        <div class="loc-capa">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3h9a3 3 0 0 1 3 3v15l-6-3-6 3V4a1 1 0 0 1 1-1z" opacity=".55"/><path d="M13 3h6a1 1 0 0 1 1 1v16l-5-2.5V6a3 3 0 0 0-2-2.83z"/></svg>
+        </div>
+        <div>
+          <h2 id="rLivro">Selecione um livro</h2>
+          <p id="rInfo">—</p>
+          <span class="badge disp" id="rDisp" style="display:none"></span>
+        </div>
+      </div>
+
+      <form id="form" class="loc-form">
+        <div class="campo">
+          <label for="livroId">Livro disponível</label>
+          <select id="livroId" required><option value="">Carregando...</option></select>
+        </div>
+
+        <div class="loc-grid">
+          <div class="campo">
+            <label for="usuario">Usuário</label>
+            <input id="usuario" readonly value="—" />
+          </div>
+          <div class="campo">
+            <label for="dias">Dias de utilização</label>
+            <input id="dias" type="number" min="1" value="7" required />
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Devolução prevista</label>
+          <div class="loc-previsao" id="previsao">—</div>
+        </div>
+
+        <div class="loc-rodape">
+          <a class="btn" href="/livros.html">Voltar ao acervo</a>
+          <button type="submit" class="btn btn-primario">Confirmar locação</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

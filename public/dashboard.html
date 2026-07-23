@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Painel geral — Biblioteca</title>
+  <link rel="icon" href="/img/sancon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script type="module" src="/js/pages/dashboard.js"></script>
+  <style> .stat { text-align: left; } </style>
+</head>
+<body>
+  <main class="container">
+    <h1 id="titulo">Painel geral</h1>
+
+    <div id="painelGeral">
+      <div class="cards" id="cards"></div>
+
+      <div class="dash-grid">
+        <section class="painel">
+          <h2>Ranking de usuários</h2>
+          <p class="dash-destaque" id="topUsuario">—</p>
+          <div class="grafico-barras" id="ranking"></div>
+        </section>
+
+        <section class="painel">
+          <h2>Situação do acervo</h2>
+          <div class="donut-wrap">
+            <div class="donut" id="donut"></div>
+            <div class="donut-legenda" id="donutLeg"></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="painel painel-tabela">
+        <div class="painel-head"><div class="head-esq"><h2>Últimas locações (todos os usuários)</h2></div></div>
+        <div class="tabela-scroll">
+          <table>
+            <thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead>
+            <tbody id="ultimas"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

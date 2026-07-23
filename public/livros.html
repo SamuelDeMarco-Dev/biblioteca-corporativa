@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Acervo — Livros</title>
+  <link rel="icon" href="/img/sancon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/estilo.css" />
+  <script type="module" src="/js/pages/acervo.js"></script>
+</head>
+<body>
+  <main class="container">
+    <h1>Acervo de livros</h1>
+
+    <section class="painel toolbar">
+      <div class="toolbar-filtros">
+        <input id="fTitulo" class="campo-busca" placeholder="Buscar por título" />
+        <input id="fAutor" placeholder="Autor" />
+        <input id="fEditora" placeholder="Editora" />
+        <input id="fAno" type="number" placeholder="Ano" />
+        <select id="fStatus">
+          <option value="">Todos os status</option>
+          <option value="DISPONIVEL">Disponível</option>
+          <option value="LOCADO">Locado</option>
+          <option value="INDISPONIVEL">Indisponível</option>
+        </select>
+        <label class="check"><input type="checkbox" id="fDisponivel" /> Somente disponíveis</label>
+        <button type="button" id="fLimpar" class="btn">Limpar</button>
+      </div>
+      <button type="button" id="btnNovoLivro" class="btn btn-primario" hidden>+ Novo livro</button>
+    </section>
+
+    <div id="grid" class="grid">Carregando...</div>
+  </main>
+</body>
+</html>
