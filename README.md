@@ -555,10 +555,10 @@ Cadastra um livro no acervo e cria automaticamente a quantidade informada de **e
 |-------|------|:-----------:|-----------|
 | `titulo` | string | ✅ | Título do livro |
 | `autor` | string | ✅ | Autor(es) — vários podem ser separados por vírgula |
-| `editora` | string | ✅ | Editora |
+| `editora` | string | ❌ | Editora (pode vir vazia da Open Library) |
 | `anoPublicacao` | number | ✅ | Ano de publicação |
 | `edicao` | string | ✅ | Edição (ex.: `"2ª"`) |
-| `observacao` | string | ✅ | Observação |
+| `observacao` | string | ❌ | Observação |
 | `isbn` | string | ❌ | ISBN (único, se informado) |
 | `quantidadeExemplares` | number | ✅ | Quantidade de exemplares a criar (mínimo 1) |
 
