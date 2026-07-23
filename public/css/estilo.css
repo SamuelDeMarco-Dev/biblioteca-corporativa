@@ -67,8 +67,14 @@ body.app-shell { padding-left: var(--sidebar-w); min-height: 100vh; }
 .topbar .toggle svg { width: 22px; height: 22px; }
 .topbar .titulo { font-size: 20px; font-weight: 600; color: var(--titulo); }
 
+/* Grupo à direita: ícone de tema + usuário */
+.topbar-direita { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.tema-btn { background: none; border: 0; cursor: pointer; color: var(--texto-suave); padding: 8px; border-radius: 8px; display: inline-flex; }
+.tema-btn:hover { background: var(--superficie-2); color: var(--texto); }
+.tema-btn svg { width: 19px; height: 19px; }
+
 /* Usuário + dropdown */
-.topbar .usuario { margin-left: auto; position: relative; }
+.topbar .usuario { position: relative; }
 .user-btn { display: flex; align-items: center; gap: 10px; background: none; border: 0; cursor: pointer;
   padding: 6px 8px; border-radius: 8px; color: var(--texto); font-size: 14px; }
 .user-btn:hover { background: var(--superficie-2); }

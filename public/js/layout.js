@@ -27,6 +27,7 @@ export async function exigirAcesso({ permissao, admin } = {}) {
 }
 
 export async function iniciarLayout() {
+  if (document.querySelector('.topbar')) return; // idempotente: nunca duplica a topbar/sidebar
   const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
   if (!localStorage.getItem('token') || !usuario) return;
 
@@ -50,15 +51,17 @@ export async function iniciarLayout() {
   header.innerHTML = `
     <button class="toggle" type="button" aria-label="Menu">${icone('menu')}</button>
     <span class="titulo">${titulo}</span>
-    <div class="usuario">
-      <button class="user-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="avatar">${iniciais(usuario.nome)}</span>
-        <span class="nome">${usuario.nome}</span>
-        ${icone('chevron')}
-      </button>
-      <div class="user-drop" hidden>
-        <button class="drop-item" type="button" data-acao="tema"></button>
-        <button class="drop-item perigo" type="button" data-acao="sair">${icone('sair')} Sair</button>
+    <div class="topbar-direita">
+      <button class="tema-btn" type="button" aria-label="Alternar tema"></button>
+      <div class="usuario">
+        <button class="user-btn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar">${iniciais(usuario.nome)}</span>
+          <span class="nome">${usuario.nome}</span>
+          ${icone('chevron')}
+        </button>
+        <div class="user-drop" hidden>
+          <button class="drop-item perigo" type="button" data-acao="sair">${icone('sair')} Sair</button>
+        </div>
       </div>
     </div>`;
 
@@ -79,23 +82,26 @@ export async function iniciarLayout() {
   overlay.addEventListener('click', fecharMenu);
   aside.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', fecharMenu));
 
-  // Dropdown do usuário
+  // Botão de tema (ícone independente ao lado do usuário)
+  const temaBtn = header.querySelector('.tema-btn');
+  const rotularTema = () => {
+    temaBtn.innerHTML = temaAtual() === 'dark' ? icone('sol') : icone('lua');
+    const rot = temaAtual() === 'dark' ? 'Ativar modo claro' : 'Ativar modo noturno';
+    temaBtn.setAttribute('aria-label', rot);
+    temaBtn.title = rot;
+  };
+  rotularTema();
+  temaBtn.addEventListener('click', () => { alternarTema(); rotularTema(); });
+
+  // Dropdown do usuário (agora só com "Sair")
   const usuarioEl = header.querySelector('.usuario');
   const userBtn = header.querySelector('.user-btn');
   const drop = header.querySelector('.user-drop');
-  const itemTema = drop.querySelector('[data-acao="tema"]');
-
-  const rotularTema = () => {
-    itemTema.innerHTML = temaAtual() === 'dark' ? `${icone('sol')} Modo claro` : `${icone('lua')} Modo noturno`;
-  };
-  rotularTema();
-
   const setDrop = (aberto) => {
     drop.toggleAttribute('hidden', !aberto);
     userBtn.setAttribute('aria-expanded', String(aberto));
   };
   userBtn.addEventListener('click', (e) => { e.stopPropagation(); setDrop(drop.hasAttribute('hidden')); });
   document.addEventListener('click', (e) => { if (!usuarioEl.contains(e.target)) setDrop(false); });
-  itemTema.addEventListener('click', () => { alternarTema(); rotularTema(); });
   drop.querySelector('[data-acao="sair"]').addEventListener('click', logout);
 }

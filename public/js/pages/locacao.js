@@ -14,7 +14,10 @@ async function init() {
   const eu = await exigirAcesso();
   if (!eu) return;
   document.getElementById('usuario').value = `${eu.nome} (${eu.email})`;
+  await carregar();
+}
 
+async function carregar() {
   const { ok, data } = await api.livros();
   disponiveis = (ok ? data : []).filter((l) => l.status === 'DISPONIVEL');
 
@@ -70,7 +73,7 @@ document.getElementById('form').addEventListener('submit', async (e) => {
     return;
   }
   mensagem(`Locação registrada! Exemplar ${data.exemplar}. Devolver até ${fmt(new Date(data.dataPrevista))}.`, 'sucesso');
-  init();
+  carregar();
 });
 
 init();

@@ -12,7 +12,10 @@ async function init() {
   if (!eu) return;
   ehAdmin = eu.perfil === 'ADMINISTRADOR';
   if (ehAdmin) document.getElementById('titulo').textContent = 'Locações (todos os usuários)';
+  await carregar();
+}
 
+async function carregar() {
   const { ok, data } = await api.locacoes();
   const locacoes = ok ? data : [];
   const ativas = locacoes.filter((l) => l.ativa);
@@ -72,7 +75,7 @@ async function devolver(id, titulo) {
     return;
   }
   mensagem('Devolução registrada!', 'sucesso');
-  init();
+  carregar();
 }
 
 init();
