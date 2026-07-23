@@ -1,59 +1,11 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8" /><title>Dashboard</title>
-  <link rel="stylesheet" href="/css/estilo.css" />
-  <script src="/js/layout.js" defer></script>
-  <style> .card { text-align: center; } </style>
+  <meta charset="utf-8" />
+  <title>Dashboard</title>
+  <!-- O dashboard passou a ser a tela inicial (home.html). Mantemos este arquivo
+       apenas como redirecionamento para não quebrar links/favoritos antigos. -->
+  <script>location.replace('/home.html');</script>
 </head>
-<body>
-  <main class="container">
-    <h1>Dashboard da Biblioteca</h1>
-
-    <div class="cards" id="cards"></div>
-
-    <h2>Usuário que mais locou</h2>
-    <p id="topUsuario">—</p>
-
-    <h2>Ranking de usuários</h2>
-    <table><thead><tr><th>#</th><th>Usuário</th><th>Locações</th></tr></thead><tbody id="ranking"></tbody></table>
-
-    <h2>Últimas locações</h2>
-    <table><thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead><tbody id="ultimas"></tbody></table>
-  </main>
-
-  <script>
-    const token = localStorage.getItem('token');
-    if (!token) location.href = '/';
-    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-    const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
-
-    async function init() {
-      // apenas administradores (gate no cliente; o backend também bloqueia)
-      if (!(await window.exigirAcesso({ admin: true }))) return;
-
-      const resp = await fetch('/dashboard', { headers: authHeaders });
-      if (resp.status === 403) { location.href = '/home.html'; return; }
-      const d = await resp.json();
-
-      document.getElementById('cards').innerHTML = `
-        <div class="card"><div class="num">${d.totais.cadastrados}</div>Livros cadastrados</div>
-        <div class="card"><div class="num">${d.totais.disponiveis}</div>Disponíveis</div>
-        <div class="card"><div class="num">${d.totais.locados}</div>Locados</div>`;
-
-      document.getElementById('topUsuario').textContent = d.usuarioTop
-        ? `${d.usuarioTop.nome} — ${d.usuarioTop.total} locação(ões)` : 'Nenhuma locação ainda';
-
-      document.getElementById('ranking').innerHTML = d.ranking.length
-        ? d.ranking.map((r, i) => `<tr><td>${i + 1}</td><td>${r.nome}</td><td>${r.total}</td></tr>`).join('')
-        : `<tr><td colspan="3"><em>Sem dados</em></td></tr>`;
-
-      document.getElementById('ultimas').innerHTML = d.ultimasLocacoes.length
-        ? d.ultimasLocacoes.map((l) => `<tr><td>${l.livro}</td><td>${l.usuario}</td><td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td><td>${l.devolvido ? 'Devolvido' : 'Ativa'}</td></tr>`).join('')
-        : `<tr><td colspan="5"><em>Sem locações</em></td></tr>`;
-    }
-    // aguarda o layout.js (defer) carregar antes de usar window.exigirAcesso
-    document.addEventListener('DOMContentLoaded', init);
-  </script>
-</body>
+<body></body>
 </html>

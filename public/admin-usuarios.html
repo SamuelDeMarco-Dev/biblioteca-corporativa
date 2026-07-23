@@ -4,59 +4,38 @@
   <meta charset="utf-8" /><title>Gerenciar usuários</title>
   <link rel="stylesheet" href="/css/estilo.css" />
   <script src="/js/layout.js" defer></script>
-  <style>
-    fieldset { border: 1px solid var(--borda); border-radius: var(--raio); background: var(--card); margin-bottom: 12px; padding: 12px; }
-    fieldset input, fieldset select { width: auto; display: inline-block; margin-right: 8px; }
-  </style>
 </head>
 <body>
   <main class="container">
     <h1>Gerenciar usuários</h1>
 
-    <fieldset>
-      <legend>Cadastrar novo usuário</legend>
-      <form id="formNovo" class="form" novalidate>
-        <label for="nome">Nome</label>
-        <input id="nome" placeholder="Nome completo" />
-        <label for="email">E-mail</label>
-        <input id="email" type="email" placeholder="email@empresa.com" />
-        <label for="cpf">CPF</label>
-        <input id="cpf" inputmode="numeric" maxlength="11" placeholder="Somente números (11 dígitos)" />
-        <label for="senha">Senha</label>
-        <input id="senha" type="password" placeholder="Mínimo 6 caracteres" />
-        <label for="setor">Setor</label>
-        <select id="setor">
-          <option value="SUPORTE">Suporte</option>
-          <option value="SERVICOS">Serviços</option>
-          <option value="SANCONHUB">SanconHub</option>
-          <option value="ADMINISTRATIVO">Administrativo</option>
-          <option value="COMERCIAL">Comercial</option>
-          <option value="MARKETING">Marketing</option>
-          <option value="TI">TI</option>
-          <option value="RH">RH</option>
-          <option value="DIRETORIA">Diretoria</option>
-        </select>
-        <label for="perfil">Perfil</label>
-        <select id="perfil">
-          <option value="USUARIO">Usuário</option>
-          <option value="ADMINISTRADOR">Administrador</option>
-        </select>
-        <button type="submit" class="btn btn-primario">Cadastrar usuário</button>
-      </form>
-    </fieldset>
-
-    <div id="lista">Carregando...</div>
+    <section class="painel painel-tabela">
+      <div class="painel-head">
+        <div class="head-esq"><h2>Usuários</h2><span class="contador" id="contUsuarios">0</span></div>
+        <button id="btnNovoUsuario" class="btn btn-primario">+ Novo usuário</button>
+      </div>
+      <div class="tabela-scroll">
+        <table>
+          <thead><tr><th>#</th><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Permissões</th><th></th></tr></thead>
+          <tbody id="lista"><tr><td class="vazio" colspan="6">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script>
     const token = localStorage.getItem('token');
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
     const confirmar = (texto, tipo = 'sucesso') => mensagem(texto, tipo);
+    const esc = (s) => (s ?? '').toString().replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    const SETORES = ['SUPORTE','SERVICOS','SANCONHUB','ADMINISTRATIVO','COMERCIAL','MARKETING','TI','RH','DIRETORIA'];
+    const rotuloSetor = (s) => s.charAt(0) + s.slice(1).toLowerCase();
 
     let permissoes = [];
+    let usuariosCache = [];
 
     async function carregar() {
-      // gate no cliente pela fonte confiável (/auth/me); o backend também bloqueia
       if (!(await window.exigirAcesso({ admin: true }))) return;
 
       const [rU, rP] = await Promise.all([
@@ -64,104 +43,156 @@
         fetch('/permissoes', { headers: authHeaders }),
       ]);
       if (rU.status === 403) { location.href = '/home.html'; return; }
-      const usuarios = await rU.json();
+      usuariosCache = await rU.json();
       permissoes = await rP.json();
-      render(usuarios);
+      render(usuariosCache);
     }
 
     function render(usuarios) {
-      const div = document.getElementById('lista');
-      div.innerHTML = '';
-      usuarios.forEach((u) => {
-        const nomesDoUsuario = new Set(u.permissoes.map((p) => p.nome));
-        const checks = permissoes.map((p) => `
-          <label style="display:inline-block;margin-right:8px;font-weight:normal">
-            <input type="checkbox" data-uid="${u.id}" data-pid="${p.id}" ${nomesDoUsuario.has(p.nome) ? 'checked' : ''} />
-            ${p.nome}
-          </label>`).join('');
-
-        div.innerHTML += `
-          <fieldset>
-            <legend>#${u.id} — ${u.email}</legend>
-            <input id="nome-${u.id}" value="${u.nome}" placeholder="Nome" />
-            <select id="perfil-${u.id}">
-              <option value="USUARIO"       ${u.perfil === 'USUARIO' ? 'selected' : ''}>USUARIO</option>
-              <option value="ADMINISTRADOR" ${u.perfil === 'ADMINISTRADOR' ? 'selected' : ''}>ADMINISTRADOR</option>
-            </select>
-            <button class="btn btn-primario" onclick="salvarDados(${u.id})">Salvar dados</button>
-            <div style="margin-top:10px">${checks}</div>
-          </fieldset>`;
-      });
-
-      div.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-        cb.addEventListener('change', () => togglePermissao(cb));
-      });
+      const tbody = document.getElementById('lista');
+      document.getElementById('contUsuarios').textContent = usuarios.length;
+      if (!usuarios.length) { tbody.innerHTML = '<tr><td class="vazio" colspan="6">Nenhum usuário cadastrado.</td></tr>'; return; }
+      tbody.innerHTML = usuarios.map((u) => `
+        <tr>
+          <td>${u.id}</td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.nome)}</td>
+          <td>${u.perfil === 'ADMINISTRADOR'
+            ? '<span class="badge" style="background:var(--primaria)">Administrador</span>'
+            : '<span class="badge" style="background:#7b8794">Usuário</span>'}</td>
+          <td><span class="contador">${u.permissoes.length}</span></td>
+          <td style="text-align:right"><button class="btn" data-id="${u.id}">Editar</button></td>
+        </tr>`).join('');
+      tbody.querySelectorAll('button[data-id]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const u = usuariosCache.find((x) => x.id === Number(b.dataset.id));
+          if (u) abrirModalEditar(u);
+        }));
     }
 
-    async function salvarDados(id) {
-      const body = {
-        nome:   document.getElementById(`nome-${id}`).value,
-        perfil: document.getElementById(`perfil-${id}`).value,
-      };
-      const resp = await fetch(`/usuarios/${id}`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
-      const dados = await resp.json();
-      if (!resp.ok) return confirmar(dados.erro || 'Falha ao salvar', 'erro');
-      confirmar(`Dados do usuário #${id} atualizados com sucesso.`);
-    }
-
-    async function togglePermissao(cb) {
-      const uid = Number(cb.dataset.uid), pid = Number(cb.dataset.pid);
-      const body = cb.checked ? { habilitar: [pid] } : { desabilitar: [pid] };
-      const resp = await fetch(`/usuarios/${uid}/permissoes`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) });
-      const dados = await resp.json();
-      if (!resp.ok) { cb.checked = !cb.checked; return confirmar(dados.erro || 'Falha na permissão', 'erro'); }
-      confirmar(`Permissão ${cb.checked ? 'habilitada' : 'desabilitada'} para o usuário #${uid}.`);
-    }
-
-    // Validação local dos campos obrigatórios antes de enviar ao backend.
-    // Retorna { campo: mensagem } (mesmo formato do backend) ou null se tudo ok.
+    // ===== Validação local do cadastro =====
     function validarNovoUsuario(d) {
       const erros = {};
-      if (!d.nome.trim())                erros.nome  = 'Nome é obrigatório';
+      if (!d.nome.trim())                    erros.nome  = 'Nome é obrigatório';
       if (!window.validacoes.email(d.email)) erros.email = 'E-mail inválido';
       if (!window.validacoes.cpf(d.cpf))     erros.cpf   = 'CPF inválido';
-      if ((d.senha || '').length < 6)    erros.senha = 'Senha deve ter ao menos 6 caracteres';
+      if ((d.senha || '').length < 6)        erros.senha = 'Senha deve ter ao menos 6 caracteres';
       return Object.keys(erros).length ? erros : null;
     }
 
-    async function cadastrarUsuario(e) {
-      e.preventDefault();
-      window.limparErros(document.getElementById('formNovo'));
+    // ===== Modal: cadastrar usuário =====
+    function abrirModalNovoUsuario() {
+      const opcoesSetor  = SETORES.map((s) => `<option value="${s}">${rotuloSetor(s)}</option>`).join('');
+      const corpo = `
+        <form id="formNovo" class="form" novalidate>
+          <label for="nome">Nome</label>
+          <input id="nome" placeholder="Nome completo" />
+          <label for="email">E-mail</label>
+          <input id="email" type="email" placeholder="email@empresa.com" />
+          <label for="cpf">CPF</label>
+          <input id="cpf" inputmode="numeric" maxlength="11" placeholder="Somente números (11 dígitos)" />
+          <label for="senha">Senha</label>
+          <input id="senha" type="password" placeholder="Mínimo 6 caracteres" />
+          <label for="setor">Setor</label>
+          <select id="setor">${opcoesSetor}</select>
+          <label for="perfil">Perfil</label>
+          <select id="perfil"><option value="USUARIO">Usuário</option><option value="ADMINISTRADOR">Administrador</option></select>
+        </form>`;
+      const m = window.abrirModal({
+        titulo: 'Cadastrar novo usuário',
+        largura: 480,
+        corpoHTML: corpo,
+        acoes: [
+          { texto: 'Cancelar', onClick: (f) => f() },
+          { texto: 'Cadastrar', classe: 'btn-primario', onClick: (f) => cadastrarUsuario(m.body, f) },
+        ],
+      });
+    }
 
+    async function cadastrarUsuario(root, fechar) {
+      window.limparErros(root);
       const dados = {
-        nome:   document.getElementById('nome').value,
-        email:  document.getElementById('email').value.trim(),
-        cpf:    document.getElementById('cpf').value.replace(/\D/g, ''),
-        senha:  document.getElementById('senha').value,
-        setor:  document.getElementById('setor').value,
-        perfil: document.getElementById('perfil').value,
+        nome:   root.querySelector('#nome').value,
+        email:  root.querySelector('#email').value.trim(),
+        cpf:    root.querySelector('#cpf').value.replace(/\D/g, ''),
+        senha:  root.querySelector('#senha').value,
+        setor:  root.querySelector('#setor').value,
+        perfil: root.querySelector('#perfil').value,
       };
-
       const errosLocais = validarNovoUsuario(dados);
-      if (errosLocais) { window.aplicarErros(errosLocais); return; }
+      if (errosLocais) { window.aplicarErros(errosLocais, root); return; }
 
       const resp = await fetch('/usuarios', { method: 'POST', headers: authHeaders, body: JSON.stringify(dados) });
-      const resposta = await resp.json();
+      const r = await resp.json();
       if (!resp.ok) {
-        // destaca campos vindos do backend (validação/duplicidade) e mostra a mensagem
-        window.aplicarErros(resposta.campos, document.getElementById('formNovo'));
-        confirmar(resposta.erro || 'Falha ao cadastrar usuário', 'erro');
+        window.aplicarErros(r.campos, root);
+        confirmar(r.erro || 'Falha ao cadastrar usuário', 'erro');
         return;
       }
-      confirmar(`Usuário "${resposta.nome}" cadastrado com sucesso.`);
-      document.getElementById('formNovo').reset();
+      fechar();
+      confirmar(`Usuário "${r.nome}" cadastrado com sucesso.`);
       carregar();
     }
 
-    // aguarda o layout.js (defer) carregar antes de usar window.exigirAcesso
+    // ===== Modal: editar usuário + permissões =====
+    function abrirModalEditar(u) {
+      const checks = permissoes.map((p) => `
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:6px 0">
+          <input type="checkbox" data-pid="${p.id}" ${u.permissoes.some((x) => x.id === p.id) ? 'checked' : ''} style="width:auto" />
+          ${esc(p.nome)}
+        </label>`).join('');
+      const corpo = `
+        <div class="form">
+          <label for="edNome">Nome</label>
+          <input id="edNome" value="${esc(u.nome)}" />
+          <label for="edPerfil">Perfil</label>
+          <select id="edPerfil">
+            <option value="USUARIO"       ${u.perfil === 'USUARIO' ? 'selected' : ''}>Usuário</option>
+            <option value="ADMINISTRADOR" ${u.perfil === 'ADMINISTRADOR' ? 'selected' : ''}>Administrador</option>
+          </select>
+          <label style="margin-top:14px">Permissões</label>
+          <div>${checks}</div>
+        </div>`;
+      const orig = new Set(u.permissoes.map((p) => p.id));
+      const m = window.abrirModal({
+        titulo: `Editar — ${esc(u.email)}`,
+        largura: 460,
+        corpoHTML: corpo,
+        acoes: [
+          { texto: 'Cancelar', onClick: (f) => f() },
+          { texto: 'Salvar', classe: 'btn-primario', onClick: (f) => salvarEdicao(u.id, m.body, orig, f) },
+        ],
+      });
+    }
+
+    async function salvarEdicao(id, root, orig, fechar) {
+      window.limparErros(root);
+      const nome = root.querySelector('#edNome').value;
+      const perfil = root.querySelector('#edPerfil').value;
+      if (!nome.trim()) { window.aplicarErros({ edNome: 'Nome é obrigatório' }, root); return; }
+
+      // 1) dados básicos
+      const r1 = await fetch(`/usuarios/${id}`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify({ nome, perfil }) });
+      const d1 = await r1.json();
+      if (!r1.ok) { window.aplicarErros(d1.campos, root); confirmar(d1.erro || 'Falha ao salvar dados', 'erro'); return; }
+
+      // 2) permissões (só o que mudou)
+      const marcados = new Set([...root.querySelectorAll('input[type=checkbox]')].filter((c) => c.checked).map((c) => Number(c.dataset.pid)));
+      const habilitar   = [...marcados].filter((pid) => !orig.has(pid));
+      const desabilitar = [...orig].filter((pid) => !marcados.has(pid));
+      if (habilitar.length || desabilitar.length) {
+        const r2 = await fetch(`/usuarios/${id}/permissoes`, { method: 'PATCH', headers: authHeaders, body: JSON.stringify({ habilitar, desabilitar }) });
+        const d2 = await r2.json();
+        if (!r2.ok) { confirmar(d2.erro || 'Dados salvos, mas falhou ao atualizar permissões.', 'erro'); carregar(); return; }
+      }
+      fechar();
+      confirmar(`Usuário #${id} atualizado com sucesso.`);
+      carregar();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       carregar();
-      document.getElementById('formNovo').addEventListener('submit', cadastrarUsuario);
+      document.getElementById('btnNovoUsuario').addEventListener('click', abrirModalNovoUsuario);
     });
   </script>
 </body>

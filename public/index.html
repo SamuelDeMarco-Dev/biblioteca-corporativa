@@ -6,18 +6,36 @@
   <link rel="stylesheet" href="/css/estilo.css" />
   <script src="/js/layout.js" defer></script>
 </head>
-<body>
-  <main class="form-centro">
-    <form id="loginForm" class="form">
-      <h1>📚 Biblioteca Interna</h1>
-      <label for="email">E-mail</label>
-      <input type="email" id="email" placeholder="E-mail" required />
-      <label for="senha">Senha</label>
-      <input type="password" id="senha" placeholder="Senha" required />
-      <button type="submit" class="btn btn-primario">Entrar</button>
-      <p style="margin-top:12px"><a href="/esqueci-senha.html">Esqueci minha senha</a></p>
-    </form>
-  </main>
+<body class="tela-login">
+  <div class="login">
+    <div class="login-arte">
+      <svg class="marca-grande" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M4 3h9a3 3 0 0 1 3 3v15l-6-3-6 3V4a1 1 0 0 1 1-1z" opacity=".55"/>
+        <path d="M13 3h6a1 1 0 0 1 1 1v16l-5-2.5V6a3 3 0 0 0-2-2.83z"/>
+      </svg>
+      <p class="tagline">Gestão do acervo corporativo</p>
+    </div>
+
+    <main class="login-form-wrap">
+      <form id="loginForm" class="login-form" novalidate>
+        <div class="brand-sm">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4 3h9a3 3 0 0 1 3 3v15l-6-3-6 3V4a1 1 0 0 1 1-1z" opacity=".55"/>
+            <path d="M13 3h6a1 1 0 0 1 1 1v16l-5-2.5V6a3 3 0 0 0-2-2.83z"/>
+          </svg>
+          Biblioteca
+        </div>
+        <h1>Acesse a sua conta</h1>
+        <label for="email">E-mail</label>
+        <input type="email" id="email" placeholder="seu.email@empresa.com" required />
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" placeholder="Sua senha" required />
+        <button type="submit" class="btn btn-primario">Entrar</button>
+        <div class="links"><a href="/esqueci-senha.html">Esqueceu a senha?</a></div>
+      </form>
+      <div class="login-rodape">Powered by Biblioteca Interna</div>
+    </main>
+  </div>
 
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {

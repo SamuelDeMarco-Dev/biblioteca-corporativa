@@ -5,20 +5,28 @@
   <link rel="stylesheet" href="/css/estilo.css" />
   <script src="/js/layout.js" defer></script>
   <style>
-    .badge.ATIVA { background: var(--primaria); }
+    .badge.ATIVA { background: var(--sucesso); }
     .badge.ATRASADA { background: var(--erro); }
-    .badge.DEVOLVIDA { background: #616161; }
+    .badge.DEVOLVIDA { background: #7b8794; }
   </style>
 </head>
 <body>
   <main class="container">
     <h1 id="titulo">Minhas locações</h1>
 
-    <h2>Ativas</h2>
-    <table><thead><tr id="thAtivas"></tr></thead><tbody id="ativas"></tbody></table>
+    <section class="painel painel-tabela">
+      <div class="painel-head"><h2>Ativas</h2><span class="contador" id="contAtivas">0</span></div>
+      <div class="tabela-scroll">
+        <table><thead><tr id="thAtivas"></tr></thead><tbody id="ativas"></tbody></table>
+      </div>
+    </section>
 
-    <h2>Histórico (devolvidas)</h2>
-    <table><thead><tr id="thHist"></tr></thead><tbody id="historico"></tbody></table>
+    <section class="painel painel-tabela">
+      <div class="painel-head"><h2>Histórico (devolvidas)</h2><span class="contador" id="contHist">0</span></div>
+      <div class="tabela-scroll">
+        <table><thead><tr id="thHist"></tr></thead><tbody id="historico"></tbody></table>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -34,9 +42,15 @@
       if (ehAdmin) document.getElementById('titulo').textContent = 'Locações (todos os usuários)';
 
       const locacoes = await (await fetch('/locacoes', { headers: authHeaders })).json();
+      const ativas = locacoes.filter((l) => l.ativa);
+      const historico = locacoes.filter((l) => !l.ativa);
+
+      document.getElementById('contAtivas').textContent = ativas.length;
+      document.getElementById('contHist').textContent = historico.length;
+
       montarCabecalhos();
-      render(locacoes.filter((l) => l.ativa), 'ativas', true);
-      render(locacoes.filter((l) => !l.ativa), 'historico', false);
+      render(ativas, 'ativas', true);
+      render(historico, 'historico', false);
     }
 
     function montarCabecalhos() {
@@ -48,7 +62,7 @@
 
     function render(lista, tbodyId, ativas) {
       const tbody = document.getElementById(tbodyId);
-      if (!lista.length) { tbody.innerHTML = `<tr><td colspan="8"><em>Nenhuma locação.</em></td></tr>`; return; }
+      if (!lista.length) { tbody.innerHTML = `<tr><td class="vazio" colspan="8">Nenhuma locação por aqui.</td></tr>`; return; }
       tbody.innerHTML = lista.map((l) => {
         const usuarioCol = ehAdmin ? `<td>${l.usuario?.nome ?? '—'}</td>` : '';
         const acao = ativas
@@ -65,7 +79,12 @@
     }
 
     async function devolver(id, titulo) {
-      if(!confirm(`Confirmar a devolução de "${titulo}"?`)) return;
+      const ok = await window.confirmarModal({
+        titulo: 'Confirmar devolução',
+        mensagem: `Confirmar a devolução de "${titulo}"?`,
+        textoConfirmar: 'Devolver',
+      });
+      if (!ok) return;
       const resp = await fetch(`/locacoes/${id}/devolver`, { method: 'PATCH', headers: authHeaders });
       const dados = await resp.json();
       if (!resp.ok) {

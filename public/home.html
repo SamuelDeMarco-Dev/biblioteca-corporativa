@@ -5,17 +5,83 @@
   <title>Início — Biblioteca</title>
   <link rel="stylesheet" href="/css/estilo.css" />
   <script src="/js/layout.js" defer></script>
+  <style> .stat { text-align: left; } </style>
 </head>
 <body>
   <main class="container">
-    <h1>Bem-vindo(a), <span id="nome"></span>!</h1>
-    <p>Use o menu acima para navegar pelo acervo, suas locações e as áreas administrativas.</p>
+    <h1 id="titulo">Início</h1>
+
+    <!-- Painel do administrador: indicadores (dashboard) -->
+    <div id="painelAdmin" style="display:none">
+      <div class="cards" id="cards"></div>
+
+      <section class="painel">
+        <h2>Usuário que mais locou</h2>
+        <p id="topUsuario" style="margin:0">—</p>
+      </section>
+
+      <h2>Ranking de usuários</h2>
+      <table><thead><tr><th>#</th><th>Usuário</th><th>Locações</th></tr></thead><tbody id="ranking"></tbody></table>
+
+      <h2>Últimas locações</h2>
+      <table><thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead><tbody id="ultimas"></tbody></table>
+    </div>
+
+    <!-- Painel do usuário comum: home simples com atalhos -->
+    <div id="painelComum" style="display:none">
+      <section class="painel">
+        <h2>Bem-vindo(a), <span id="nomeComum"></span>!</h2>
+        <p>Acesse o acervo para consultar e locar livros, ou acompanhe suas locações em andamento.</p>
+        <div class="acoes" style="display:flex">
+          <a class="btn btn-primario" href="/livros.html">Ir para o acervo</a>
+          <a class="btn" href="/minhas-locacoes.html">Minhas locações</a>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script>
-    const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
-    if (!usuario) window.location.href = '/';
-    else document.getElementById('nome').textContent = usuario.nome;
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/';
+    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+
+    async function init() {
+      const eu = await window.exigirAcesso();   // apenas exige sessão válida
+      if (!eu) return;
+
+      if (eu.perfil === 'ADMINISTRADOR') {
+        document.getElementById('painelAdmin').style.display = '';
+        await carregarDashboard();
+      } else {
+        document.getElementById('nomeComum').textContent = eu.nome;
+        document.getElementById('painelComum').style.display = '';
+      }
+    }
+
+    async function carregarDashboard() {
+      const resp = await fetch('/dashboard', { headers: authHeaders });
+      if (!resp.ok) { mensagem('Não foi possível carregar os indicadores. Tente novamente.', 'erro'); return; }
+      const d = await resp.json();
+
+      document.getElementById('cards').innerHTML = `
+        <div class="card stat stat-teal"><div class="num">${d.totais.cadastrados}</div>Livros cadastrados</div>
+        <div class="card stat stat-verde"><div class="num">${d.totais.disponiveis}</div>Disponíveis</div>
+        <div class="card stat stat-laranja"><div class="num">${d.totais.locados}</div>Locados</div>`;
+
+      document.getElementById('topUsuario').textContent = d.usuarioTop
+        ? `${d.usuarioTop.nome} — ${d.usuarioTop.total} locação(ões)` : 'Nenhuma locação ainda';
+
+      document.getElementById('ranking').innerHTML = d.ranking.length
+        ? d.ranking.map((r, i) => `<tr><td>${i + 1}</td><td>${r.nome}</td><td>${r.total}</td></tr>`).join('')
+        : `<tr><td colspan="3"><em>Sem dados</em></td></tr>`;
+
+      document.getElementById('ultimas').innerHTML = d.ultimasLocacoes.length
+        ? d.ultimasLocacoes.map((l) => `<tr><td>${l.livro}</td><td>${l.usuario}</td><td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td><td>${l.devolvido ? 'Devolvido' : 'Ativa'}</td></tr>`).join('')
+        : `<tr><td colspan="5"><em>Sem locações</em></td></tr>`;
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>

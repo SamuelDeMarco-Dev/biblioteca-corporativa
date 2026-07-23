@@ -5,47 +5,135 @@
   <title>Locar livro</title>
   <link rel="stylesheet" href="/css/estilo.css" />
   <script src="/js/layout.js" defer></script>
+  <style>
+    .loc-painel { padding: 0; overflow: hidden; }
+    .loc-hero { display: flex; align-items: center; gap: 18px; padding: 22px 24px; background: #f3faf8; border-bottom: 1px solid var(--borda); }
+    .loc-capa { width: 58px; height: 58px; border-radius: 10px; background: var(--primaria); color: #fff; display: grid; place-items: center; flex: none; }
+    .loc-capa svg { width: 30px; height: 30px; }
+    .loc-hero h2 { margin: 0 0 4px; font-size: 19px; color: #3f4a54; }
+    .loc-hero p { margin: 0; color: var(--texto-suave); font-size: 14px; }
+    .loc-hero .badge { margin-top: 8px; }
+    .loc-form { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .loc-form .campo { display: flex; flex-direction: column; }
+    .loc-form label { margin: 0 0 6px; }
+    .loc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .loc-previsao { padding: 10px 12px; background: #f6f8fa; border: 1px solid var(--borda); border-radius: var(--raio); font-weight: 600; color: var(--primaria); }
+    .loc-form input[readonly] { background: #f6f8fa; color: var(--texto-suave); }
+    .loc-rodape { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+    @media (max-width: 600px) { .loc-grid { grid-template-columns: 1fr; } .loc-rodape .btn { flex: 1; justify-content: center; } }
+  </style>
 </head>
 <body>
   <main class="container">
     <h1>Locação de livro</h1>
-    <p>Usuário: <strong id="usuario">—</strong></p>
 
-    <form id="form" class="form">
-      <label for="livroId">Livro disponível</label>
-      <select id="livroId" required><option value="">Carregando...</option></select>
-      <label for="dias">Dias de utilização</label>
-      <input id="dias" type="number" min="1" value="7" required />
-      <button type="submit" class="btn btn-primario">Confirmar locação</button>
-    </form>
+    <section class="painel loc-painel">
+      <div class="loc-hero">
+        <div class="loc-capa">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3h9a3 3 0 0 1 3 3v15l-6-3-6 3V4a1 1 0 0 1 1-1z" opacity=".55"/><path d="M13 3h6a1 1 0 0 1 1 1v16l-5-2.5V6a3 3 0 0 0-2-2.83z"/></svg>
+        </div>
+        <div>
+          <h2 id="rLivro">Selecione um livro</h2>
+          <p id="rInfo">—</p>
+          <span class="badge disp" id="rDisp" style="display:none"></span>
+        </div>
+      </div>
+
+      <form id="form" class="loc-form">
+        <div class="campo">
+          <label for="livroId">Livro disponível</label>
+          <select id="livroId" required><option value="">Carregando...</option></select>
+        </div>
+
+        <div class="loc-grid">
+          <div class="campo">
+            <label for="usuario">Usuário</label>
+            <input id="usuario" readonly value="—" />
+          </div>
+          <div class="campo">
+            <label for="dias">Dias de utilização</label>
+            <input id="dias" type="number" min="1" value="7" required />
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Devolução prevista</label>
+          <div class="loc-previsao" id="previsao">—</div>
+        </div>
+
+        <div class="loc-rodape">
+          <a class="btn" href="/livros.html">Voltar ao acervo</a>
+          <button type="submit" class="btn btn-primario">Confirmar locação</button>
+        </div>
+      </form>
+    </section>
   </main>
 
   <script>
     const token = localStorage.getItem('token');
     if (!token) location.href = '/';
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-    const fmt = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+    const fmt = (d) => d.toLocaleDateString('pt-BR');
+
+    const livroIdParam = new URLSearchParams(location.search).get('livroId');
+    const select   = document.getElementById('livroId');
+    const diasInput = document.getElementById('dias');
+    let disponiveis = [];
 
     async function init() {
-      // puxa automaticamente o usuário logado
       const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
-      document.getElementById('usuario').textContent = `${me.nome} (${me.email})`;
+      document.getElementById('usuario').value = `${me.nome} (${me.email})`;
 
-      // apenas livros disponíveis
       const livros = await (await fetch('/livros', { headers: authHeaders })).json();
-      const disponiveis = livros.filter((l) => l.status === 'DISPONIVEL');
-      const select = document.getElementById('livroId');
-      select.innerHTML = disponiveis.length
-        ? disponiveis.map((l) => `<option value="${l.id}">${l.titulo} — ${l.autor} (${l.exemplaresDisponiveis} disp.)</option>`).join('')
-        : '<option value="">Nenhum livro disponível</option>';
+      disponiveis = livros.filter((l) => l.status === 'DISPONIVEL');
+
+      if (!disponiveis.length) {
+        select.innerHTML = '<option value="">Nenhum livro disponível</option>';
+        document.querySelector('#form button[type=submit]').disabled = true;
+        atualizarResumo();
+        return;
+      }
+
+      select.innerHTML = disponiveis
+        .map((l) => `<option value="${l.id}">${l.titulo} — ${l.autor} (${l.exemplaresDisponiveis} disp.)</option>`).join('');
+
+      // CORREÇÃO: pré-seleciona o livro que veio do card clicado no acervo
+      if (livroIdParam && disponiveis.some((l) => String(l.id) === String(livroIdParam))) {
+        select.value = String(livroIdParam);
+      }
+
+      atualizarResumo();
+      atualizarPrevisao();
     }
+
+    function atualizarResumo() {
+      const l = disponiveis.find((x) => String(x.id) === select.value);
+      const disp = document.getElementById('rDisp');
+      if (!l) {
+        document.getElementById('rLivro').textContent = 'Nenhum livro selecionado';
+        document.getElementById('rInfo').textContent = '—';
+        disp.style.display = 'none';
+        return;
+      }
+      document.getElementById('rLivro').textContent = l.titulo;
+      document.getElementById('rInfo').textContent =
+        `${l.autor} · ${l.editora ?? '—'} · ${l.anoPublicacao ?? '—'}`;
+      disp.textContent = `${l.exemplaresDisponiveis} exemplar(es) disponível(is)`;
+      disp.style.display = '';
+    }
+
+    function atualizarPrevisao() {
+      const dias = Number(diasInput.value) || 0;
+      document.getElementById('previsao').textContent =
+        dias > 0 ? fmt(new Date(Date.now() + dias * 86400000)) : '—';
+    }
+
+    select.addEventListener('change', atualizarResumo);
+    diasInput.addEventListener('input', atualizarPrevisao);
 
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const body = {
-        livroId: Number(document.getElementById('livroId').value),
-        dias:    Number(document.getElementById('dias').value),
-      };
+      const body = { livroId: Number(select.value), dias: Number(diasInput.value) };
       if (!body.livroId) { mensagem('Selecione um livro.', 'aviso'); return; }
 
       const resp = await fetch('/locacoes', { method: 'POST', headers: authHeaders, body: JSON.stringify(body) });
@@ -56,7 +144,7 @@
           : (dados.erro || 'Falha ao locar'), 'erro');
         return;
       }
-      mensagem(`Locação registrada! Exemplar ${dados.exemplar}. Devolver até ${fmt(dados.dataPrevista)}.`, 'sucesso');
+      mensagem(`Locação registrada! Exemplar ${dados.exemplar}. Devolver até ${fmt(new Date(dados.dataPrevista))}.`, 'sucesso');
       init();
     });
 
