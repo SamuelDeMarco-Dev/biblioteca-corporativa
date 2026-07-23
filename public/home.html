@@ -5,25 +5,39 @@
   <title>Início — Biblioteca</title>
   <link rel="stylesheet" href="/css/estilo.css" />
   <script type="module" src="/js/pages/home.js"></script>
-  <style> .stat { text-align: left; } </style>
+  <style>
+    .stat { text-align: left; }
+    /* Lista "próximas devoluções" do dashboard pessoal */
+    .prox-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+    .prox-item { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--borda); }
+    .prox-item:last-child { border-bottom: 0; }
+    .prox-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .prox-dot.ok { background: var(--sucesso); } .prox-dot.alerta { background: var(--aviso); } .prox-dot.atraso { background: var(--erro); }
+    .prox-livro { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--texto); }
+    .prox-prazo { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    .prox-prazo small { display: block; color: var(--texto-suave); }
+    .prox-prazo.ok strong { color: var(--sucesso); } .prox-prazo.alerta strong { color: var(--aviso); } .prox-prazo.atraso strong { color: var(--erro); }
+    .dash-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  </style>
 </head>
 <body>
   <main class="container">
     <h1 id="titulo">Início</h1>
 
-    <!-- Painel do administrador: indicadores (dashboard) -->
-    <div id="painelAdmin" hidden>
+    <!-- Dashboard PESSOAL: só as locações do próprio usuário (admin ou comum com permissão) -->
+    <div id="painelPessoal" hidden>
+      <p class="dash-destaque" id="saudacao">—</p>
       <div class="cards" id="cards"></div>
 
       <div class="dash-grid">
         <section class="painel">
-          <h2>Ranking de usuários</h2>
-          <p class="dash-destaque" id="topUsuario">—</p>
-          <div class="grafico-barras" id="ranking"></div>
+          <h2>Próximas devoluções</h2>
+          <p class="dash-destaque">Suas locações ativas, ordenadas pelo prazo.</p>
+          <ul class="prox-lista" id="proximas"></ul>
         </section>
 
         <section class="painel">
-          <h2>Situação do acervo</h2>
+          <h2>Situação das minhas locações</h2>
           <div class="donut-wrap">
             <div class="donut" id="donut"></div>
             <div class="donut-legenda" id="donutLeg"></div>
@@ -31,18 +45,13 @@
         </section>
       </div>
 
-      <section class="painel painel-tabela">
-        <div class="painel-head"><div class="head-esq"><h2>Últimas locações</h2></div></div>
-        <div class="tabela-scroll">
-          <table>
-            <thead><tr><th>Livro</th><th>Usuário</th><th>Data</th><th>Prazo</th><th>Situação</th></tr></thead>
-            <tbody id="ultimas"></tbody>
-          </table>
-        </div>
-      </section>
+      <div class="dash-acoes">
+        <a class="btn btn-primario" href="/livros.html">Ir para o acervo</a>
+        <a class="btn" href="/minhas-locacoes.html">Ver minhas locações</a>
+      </div>
     </div>
 
-    <!-- Painel do usuário comum -->
+    <!-- Sem permissão de dashboard: boas-vindas simples -->
     <div id="painelComum" hidden>
       <section class="painel">
         <h2>Bem-vindo(a), <span id="nomeComum"></span>!</h2>

@@ -5,6 +5,67 @@
   <link rel="stylesheet" href="/css/estilo.css" />
   <script type="module" src="/js/pages/minhas-locacoes.js"></script>
   <style>
+    /* ---- Barra de resumo + ação ---- */
+    .loc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .loc-resumo { display: flex; gap: 10px; flex-wrap: wrap; }
+    .chip-resumo { display: inline-flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--borda);
+      border-radius: 999px; padding: 7px 15px; font-size: 13.5px; color: var(--texto-suave); box-shadow: var(--sombra); }
+    .chip-resumo strong { color: var(--titulo); font-size: 15px; font-variant-numeric: tabular-nums; }
+    .chip-resumo.atraso strong { color: var(--erro); }
+    .chip-resumo::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--sucesso); }
+    .chip-resumo.atraso::before { background: var(--erro); }
+
+    /* ---- Grade de cards ---- */
+    .cards-locacoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: stretch; }
+    .loc-card { position: relative; display: flex; flex-direction: column; gap: 12px; background: var(--card);
+      border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px 18px 18px 22px; box-shadow: var(--sombra);
+      overflow: hidden; transform-origin: center; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    /* só o card sob o mouse cresce; os demais ficam estáticos (scale não altera o layout) */
+    .loc-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: var(--sombra-md); border-color: var(--borda-hover); z-index: 2; }
+    /* faixa lateral colorida por urgência */
+    .loc-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
+    .loc-card.ok::before { background: var(--sucesso); }
+    .loc-card.alerta::before { background: var(--aviso); }
+    .loc-card.atraso::before { background: var(--erro); }
+
+    .loc-card-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    /* título sempre ocupa 2 linhas (reticências se passar) → cards com altura idêntica */
+    .loc-card-topo h3 { margin: 0; font-size: 15.5px; line-height: 1.35; color: var(--titulo);
+      min-height: calc(1.35em * 2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .loc-card-topo .badge { flex: none; }
+    .loc-autor { margin: -4px 0 0; font-size: 13px; color: var(--texto-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .loc-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 2px 0 0; }
+    .loc-meta > div { display: flex; flex-direction: column; gap: 1px; }
+    .loc-meta dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--label); }
+    .loc-meta dd { margin: 0; font-size: 13.5px; color: var(--texto); font-variant-numeric: tabular-nums; }
+
+    /* faixa de prazo (o destaque intuitivo) */
+    .loc-prazo { display: flex; align-items: center; gap: 11px; border-radius: 8px; padding: 10px 13px; }
+    .loc-prazo.ok { background: var(--alerta-sucesso-bg); color: var(--sucesso); }
+    .loc-prazo.alerta { background: var(--alerta-aviso-bg); color: var(--aviso); }
+    .loc-prazo.atraso { background: var(--alerta-erro-bg); color: var(--erro); }
+    .loc-prazo svg { width: 20px; height: 20px; flex: none; }
+    .loc-prazo-txt { display: flex; flex-direction: column; line-height: 1.3; }
+    .loc-prazo-rotulo { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+    .loc-prazo-txt strong { font-size: 14px; }
+    .loc-prazo-data { color: var(--texto); font-weight: 400; }
+
+    .loc-card-acoes { margin-top: auto; padding-top: 4px; }
+    .loc-card-acoes .btn { width: 100%; }
+
+    .estado-vazio { text-align: center; padding: 48px 20px; color: var(--texto-suave); background: var(--card);
+      border: 1px dashed var(--borda); border-radius: var(--raio); }
+    .estado-vazio svg { width: 34px; height: 34px; opacity: .5; margin-bottom: 8px; }
+
+    /* ---- Modal de histórico ---- */
+    .hist-filtros { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .hist-filtros .campo-busca { flex: 1 1 240px; }
+    .hist-scroll { max-height: 56vh; overflow-y: auto; border: 1px solid var(--borda); border-radius: 8px; }
+    .hist-scroll table { min-width: 620px; margin: 0; box-shadow: none; border: 0; border-radius: 0; }
+    .hist-scroll thead th { position: sticky; top: 0; background: var(--cabecalho-tab); z-index: 1; }
+    .hist-vazio { text-align: center; color: var(--texto-suave); padding: 26px 0 6px; }
+
     .badge.ATIVA { background: var(--sucesso); }
     .badge.ATRASADA { background: var(--erro); }
     .badge.DEVOLVIDA { background: #7b8794; }
@@ -14,19 +75,17 @@
   <main class="container">
     <h1 id="titulo">Minhas locações</h1>
 
-    <section class="painel painel-tabela">
-      <div class="painel-head"><h2>Ativas</h2><span class="contador" id="contAtivas">0</span></div>
-      <div class="tabela-scroll">
-        <table><thead><tr id="thAtivas"></tr></thead><tbody id="ativas"></tbody></table>
+    <div class="loc-toolbar">
+      <div class="loc-resumo">
+        <span class="chip-resumo"><strong id="contAtivas">0</strong> em dia</span>
+        <span class="chip-resumo atraso"><strong id="contAtraso">0</strong> atrasadas</span>
       </div>
-    </section>
+      <button class="btn btn-neutro" id="btnHistorico" type="button">
+        Ver histórico (<span id="contHist">0</span>)
+      </button>
+    </div>
 
-    <section class="painel painel-tabela">
-      <div class="painel-head"><h2>Histórico (devolvidas)</h2><span class="contador" id="contHist">0</span></div>
-      <div class="tabela-scroll">
-        <table><thead><tr id="thHist"></tr></thead><tbody id="historico"></tbody></table>
-      </div>
-    </section>
+    <section class="cards-locacoes" id="ativas"></section>
   </main>
 </body>
 </html>

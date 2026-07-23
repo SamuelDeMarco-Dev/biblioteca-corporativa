@@ -5,7 +5,7 @@ import { api, logout } from './api.js';
 import { temaAtual, alternarTema } from './theme.js';
 
 const LINKS_BASE = [
-  ['/home.html', 'Início', 'grafico'],
+  ['/home.html', 'Início', 'home'],
   ['/livros.html', 'Acervo', 'livro'],
   ['/minhas-locacoes.html', 'Minhas locações', 'relogio'],
 ];
@@ -35,7 +35,10 @@ export async function iniciarLayout() {
   const perfil = r.ok ? r.data.perfil : usuario.perfil;
 
   const links = [...LINKS_BASE];
-  if (perfil === 'ADMINISTRADOR') links.push(['/admin-usuarios.html', 'Usuários', 'usuarios']);
+  if (perfil === 'ADMINISTRADOR') {
+    links.push(['/dashboard.html', 'Painel geral', 'grafico']);
+    links.push(['/admin-usuarios.html', 'Usuários', 'usuarios']);
+  }
   const atual = location.pathname;
 
   const aside = document.createElement('aside');

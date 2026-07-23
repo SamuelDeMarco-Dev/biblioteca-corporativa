@@ -115,7 +115,7 @@ input[type=checkbox] { width: auto; }
 .form-centro .form { border-top: 4px solid var(--primaria); }
 
 /* ===================== Cards e grid ===================== */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-items: stretch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--gap); align-items: stretch; }
 .card { background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px; box-shadow: var(--sombra); position: relative; }
 .card h3 { color: var(--titulo); }
 .painel { background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); padding: 20px; margin-bottom: var(--gap); }
@@ -197,22 +197,39 @@ td.vazio { text-align: center; color: var(--texto-suave); font-style: italic; pa
 .toolbar .check input { width: auto; }
 
 /* ===================== Card de livro ===================== */
-.livro-card { display: flex; flex-direction: column; gap: 12px; cursor: default;
-  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
-.livro-card:hover { transform: translateY(-3px); box-shadow: var(--sombra-md); border-color: var(--borda-hover); }
+.livro-card { display: flex; flex-direction: column; gap: 12px; cursor: pointer; position: relative; overflow: hidden;
+  padding-left: 22px; transform-origin: center; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+/* faixa lateral colorida pelo status do livro */
+.livro-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--texto-suave); }
+.livro-card.st-DISPONIVEL::before { background: var(--sucesso); }
+.livro-card.st-LOCADO::before { background: var(--erro); }
+.livro-card.st-INDISPONIVEL::before { background: var(--aviso); }
+.livro-card.st-REMOVIDO::before { background: var(--texto-suave); }
+/* só o card sob o mouse cresce; os demais ficam estáticos */
+.livro-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: var(--sombra-md); border-color: var(--borda-hover); z-index: 2; }
 .livro-card:focus-visible { outline: 2px solid var(--acao); outline-offset: 2px; }
 .livro-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.livro-topo h3 { margin: 0; font-size: 16px; line-height: 1.3; }
+/* título sempre ocupa 2 linhas (reticências se passar) → cards com altura idêntica */
+.livro-topo h3 { margin: 0; font-size: 16px; line-height: 1.3; color: var(--titulo);
+  min-height: calc(1.3em * 2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .livro-topo .badge { flex: none; }
 .livro-meta { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
 .livro-meta > div { min-width: 0; }
 .livro-meta .full { grid-column: 1 / -1; }
 .livro-meta dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-suave); margin-bottom: 1px; }
-.livro-meta dd { margin: 0; font-size: 13.5px; color: var(--texto); }
+.livro-meta dd { margin: 0; font-size: 13.5px; color: var(--texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .livro-detalhe { margin: 0; font-size: 13px; color: var(--texto-suave); }
 .livro-card .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--borda); }
 .livro-card .acoes .btn { padding: 7px 12px; font-size: 13px; }
 .sem-acao { color: var(--texto-suave); font-size: 13px; font-style: italic; }
+
+/* ===================== Modal de detalhes (acervo + locações) ===================== */
+.det-lista { margin: 0; display: flex; flex-direction: column; }
+.det-linha { display: flex; justify-content: space-between; gap: 16px; padding: 11px 2px; border-bottom: 1px solid var(--borda); }
+.det-linha:last-child { border-bottom: 0; }
+.det-linha dt { color: var(--label); font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; flex: none; }
+.det-linha dd { margin: 0; color: var(--texto); text-align: right; }
+.det-urg.ok { color: var(--sucesso); } .det-urg.alerta { color: var(--aviso); } .det-urg.atraso { color: var(--erro); }
 
 /* ===================== Modais ===================== */
 body.modal-aberto { overflow: hidden; }

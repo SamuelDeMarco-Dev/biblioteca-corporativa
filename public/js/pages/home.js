@@ -4,64 +4,78 @@ import { api } from '../api.js';
 import { esc, mensagem } from '../ui.js';
 
 const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
+const DIA = 86400000;
 
 async function init() {
   iniciarLayout();
   const eu = await exigirAcesso();
   if (!eu) return;
 
-  if (eu.perfil === 'ADMINISTRADOR') {
-    document.getElementById('painelAdmin').hidden = false;
-    await carregarDashboard();
+  // O dashboard (pessoal) aparece para admin ou para quem tem ACESSAR_DASHBOARD.
+  const podeDashboard = eu.perfil === 'ADMINISTRADOR' || (eu.permissoes || []).includes('ACESSAR_DASHBOARD');
+  if (podeDashboard) {
+    document.getElementById('saudacao').textContent = `Olá, ${eu.nome} — aqui está o resumo das suas locações.`;
+    document.getElementById('painelPessoal').hidden = false;
+    await carregarPessoal(eu);
   } else {
     document.getElementById('nomeComum').textContent = eu.nome;
     document.getElementById('painelComum').hidden = false;
   }
 }
 
-async function carregarDashboard() {
-  const { ok, data: d } = await api.dashboard();
-  if (!ok) { mensagem('Não foi possível carregar os indicadores. Tente novamente.', 'erro'); return; }
+// Calcula a urgência do prazo de uma locação ativa.
+function urgencia(l) {
+  if (l.status === 'ATRASADA') {
+    const dias = Math.max(1, Math.ceil((Date.now() - new Date(l.prazo).getTime()) / DIA));
+    return { classe: 'atraso', texto: `Atrasado há ${dias} ${dias === 1 ? 'dia' : 'dias'}` };
+  }
+  const dias = Math.ceil((new Date(l.prazo).getTime() - Date.now()) / DIA);
+  if (dias <= 0) return { classe: 'alerta', texto: 'Vence hoje' };
+  if (dias === 1) return { classe: 'alerta', texto: 'Vence amanhã' };
+  if (dias <= 3) return { classe: 'alerta', texto: `Vence em ${dias} dias` };
+  return { classe: 'ok', texto: `${dias} dias restantes` };
+}
+
+async function carregarPessoal(eu) {
+  // Admin vê tudo por padrão em /locacoes; meu=true garante só as dele.
+  const { ok, data } = await api.locacoes(eu.perfil === 'ADMINISTRADOR');
+  if (!ok) { mensagem('Não foi possível carregar suas locações. Tente novamente.', 'erro'); return; }
+
+  const minhas = data || [];
+  const ativas = minhas.filter((l) => l.ativa);
+  const atrasadas = ativas.filter((l) => l.status === 'ATRASADA');
+  const emDia = ativas.length - atrasadas.length;
+  const devolvidas = minhas.filter((l) => !l.ativa).length;
 
   // Stat-tiles
   document.getElementById('cards').innerHTML = `
-    <div class="card stat stat-teal"><div class="num">${d.totais.cadastrados}</div>Livros cadastrados</div>
-    <div class="card stat stat-verde"><div class="num">${d.totais.disponiveis}</div>Disponíveis</div>
-    <div class="card stat stat-laranja"><div class="num">${d.totais.locados}</div>Locados</div>`;
+    <div class="card stat stat-verde"><div class="num">${emDia}</div>Em dia</div>
+    <div class="card stat stat-vermelho"><div class="num">${atrasadas.length}</div>Atrasadas</div>
+    <div class="card stat stat-teal"><div class="num">${devolvidas}</div>Devolvidas</div>
+    <div class="card stat stat-laranja"><div class="num">${minhas.length}</div>Total</div>`;
 
-  // Destaque
-  document.getElementById('topUsuario').innerHTML = d.usuarioTop
-    ? `Maior locador: <strong>${esc(d.usuarioTop.nome)}</strong> — ${d.usuarioTop.total} locação(ões)`
-    : 'Nenhuma locação registrada ainda.';
+  // Próximas devoluções (ativas ordenadas pelo prazo)
+  const proximas = [...ativas].sort((a, b) => new Date(a.prazo) - new Date(b.prazo));
+  document.getElementById('proximas').innerHTML = proximas.length
+    ? proximas.map((l) => {
+        const u = urgencia(l);
+        return `<li class="prox-item">
+          <span class="prox-dot ${u.classe}"></span>
+          <span class="prox-livro" title="${esc(l.livro)}">${esc(l.livro)}</span>
+          <span class="prox-prazo ${u.classe}"><strong>${u.texto}</strong><small>${fmt(l.prazo)}</small></span>
+        </li>`;
+      }).join('')
+    : '<li class="prox-item"><span class="sem-acao">Você não tem locações ativas.</span></li>';
 
-  // Gráfico de barras — ranking
-  const ranking = d.ranking || [];
-  const max = ranking.reduce((m, r) => Math.max(m, r.total), 0) || 1;
-  document.getElementById('ranking').innerHTML = ranking.length
-    ? ranking.map((r) => `
-        <div class="barra-row">
-          <span class="rot" title="${esc(r.nome)}">${esc(r.nome)}</span>
-          <div class="barra-track"><div class="barra-fill" style="width:${((r.total / max) * 100).toFixed(1)}%"></div></div>
-          <span class="barra-val">${r.total}</span>
-        </div>`).join('')
-    : '<p class="sem-acao">Sem dados de locação.</p>';
-
-  // Donut — situação do acervo (disponíveis x locados)
-  const disp = d.totais.disponiveis || 0;
-  const loc = d.totais.locados || 0;
-  const total = (disp + loc) || 1;
+  // Donut: em dia (verde) x atrasadas (amarelo) x devolvidas (cinza)
+  const total = (emDia + atrasadas.length + devolvidas) || 1;
   const donut = document.getElementById('donut');
-  donut.style.setProperty('--p1', ((disp / total) * 100).toFixed(1));
-  donut.style.setProperty('--p2', ((loc / total) * 100).toFixed(1));
+  donut.style.setProperty('--p1', ((emDia / total) * 100).toFixed(1));
+  donut.style.setProperty('--p2', ((atrasadas.length / total) * 100).toFixed(1));
   document.getElementById('donutLeg').innerHTML = `
-    <div class="item"><span class="pt" style="background:var(--sucesso)"></span> Disponíveis <strong>${disp}</strong></div>
-    <div class="item"><span class="pt" style="background:var(--aviso)"></span> Locados <strong>${loc}</strong></div>
-    <div class="item"><span class="pt" style="background:var(--chip)"></span> Cadastrados <strong>${d.totais.cadastrados}</strong></div>`;
-
-  // Últimas locações
-  document.getElementById('ultimas').innerHTML = d.ultimasLocacoes.length
-    ? d.ultimasLocacoes.map((l) => `<tr><td>${esc(l.livro)}</td><td>${esc(l.usuario)}</td><td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td><td>${l.devolvido ? 'Devolvido' : 'Ativa'}</td></tr>`).join('')
-    : '<tr><td class="vazio" colspan="5">Sem locações</td></tr>';
+    <div class="item"><span class="pt" style="background:var(--sucesso)"></span> Em dia <strong>${emDia}</strong></div>
+    <div class="item"><span class="pt" style="background:var(--aviso)"></span> Atrasadas <strong>${atrasadas.length}</strong></div>
+    <div class="item"><span class="pt" style="background:var(--chip)"></span> Devolvidas <strong>${devolvidas}</strong></div>`;
 }
 
 init();

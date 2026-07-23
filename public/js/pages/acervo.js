@@ -57,7 +57,8 @@ function render(livros) {
     if (eu.perfil === 'ADMINISTRADOR') botoes.push(`<button class="btn btn-perigo" data-acao="excluir" data-id="${l.id}" data-titulo="${esc(l.titulo)}">Excluir</button>`);
 
     const card = document.createElement('div');
-    card.className = 'card livro-card';
+    card.className = `card livro-card st-${l.status}`;
+    card.dataset.id = l.id;
     card.tabIndex = 0;
     card.innerHTML = `
       <div class="livro-topo">
@@ -76,15 +77,55 @@ function render(livros) {
   });
 }
 
-// Delegação de eventos das ações dos cards (sem onclick inline)
+// Delegação: ações nos botões; clicar em qualquer outra parte do card abre os detalhes.
 grid.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-acao]');
-  if (!b) return;
-  const id = Number(b.dataset.id);
-  if (b.dataset.acao === 'locar') location.href = `/locacao.html?livroId=${id}`;
-  else if (b.dataset.acao === 'exemplar') addExemplar(id);
-  else if (b.dataset.acao === 'excluir') excluir(id, b.dataset.titulo);
+  if (b) {
+    const id = Number(b.dataset.id);
+    if (b.dataset.acao === 'locar') location.href = `/locacao.html?livroId=${id}`;
+    else if (b.dataset.acao === 'exemplar') addExemplar(id);
+    else if (b.dataset.acao === 'excluir') excluir(id, b.dataset.titulo);
+    return;
+  }
+  const card = e.target.closest('.livro-card');
+  if (card) abrirDetalhes(Number(card.dataset.id));
 });
+grid.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('.livro-card');
+  if (card && e.target === card) { e.preventDefault(); abrirDetalhes(Number(card.dataset.id)); }
+});
+
+// ===== Modal: detalhes do livro =====
+function abrirDetalhes(id) {
+  const l = todos.find((x) => x.id === id);
+  if (!l) return;
+  const s = STATUS[l.status] ?? STATUS.INDISPONIVEL;
+  const linha = (rot, val) => (val || val === 0 ? `<div class="det-linha"><dt>${rot}</dt><dd>${esc(val)}</dd></div>` : '');
+
+  let disp = '';
+  if (l.status === 'DISPONIVEL') disp = `${l.exemplaresDisponiveis}/${l.totalExemplares} exemplares disponíveis`;
+  else if (l.status === 'LOCADO') disp = `Disponível a partir de ${fmtData(l.dataPrevistaDisponibilidade)}`;
+
+  const corpo = `
+    <dl class="det-lista">
+      ${linha('Autor(es)', l.autor)}
+      ${linha('Editora', l.editora)}
+      ${linha('Ano', l.anoPublicacao)}
+      ${linha('Edição', l.edicao)}
+      ${linha('ISBN', l.isbn)}
+      ${linha('Observação', l.observacao)}
+      ${linha('Exemplares', `${l.exemplaresDisponiveis}/${l.totalExemplares}`)}
+      <div class="det-linha"><dt>Status</dt><dd><span class="badge" style="background:${s.cor}">${s.txt}</span></dd></div>
+      ${disp ? `<div class="det-linha"><dt>Disponibilidade</dt><dd>${esc(disp)}</dd></div>` : ''}
+    </dl>`;
+
+  const acoes = [{ texto: 'Fechar', onClick: (f) => f() }];
+  if (pode('LOCAR_LIVROS') && l.status === 'DISPONIVEL') {
+    acoes.push({ texto: 'Locar', classe: 'btn-primario', onClick: () => { location.href = `/locacao.html?livroId=${l.id}`; } });
+  }
+  abrirModal({ titulo: l.titulo, corpoHTML: corpo, largura: 520, acoes });
+}
 
 // ===== Modal: cadastrar livro =====
 function abrirModalNovoLivro() {

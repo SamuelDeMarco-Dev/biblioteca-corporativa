@@ -50,7 +50,8 @@ export const api = {
   excluirLivro: (id) => request('DELETE', `/livros/${id}`),
   buscarExterno: (titulo) => request('GET', `/livros/buscar-externo?titulo=${encodeURIComponent(titulo)}`),
 
-  locacoes: () => request('GET', '/locacoes'),
+  // meu=true força o admin a ver só as próprias locações (dashboard pessoal).
+  locacoes: (meu = false) => request('GET', `/locacoes${meu ? '?meu=true' : ''}`),
   locar: (corpo) => request('POST', '/locacoes', corpo),
   devolver: (id) => request('PATCH', `/locacoes/${id}/devolver`),
 
