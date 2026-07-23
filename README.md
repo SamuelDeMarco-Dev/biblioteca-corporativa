@@ -38,19 +38,23 @@ template-node-mvc/
 │   ├── migrations/        # Histórico de migrations (versionado)
 │   ├── seed-admin.ts      # Cria o primeiro administrador
 │   └── seed-permissoes.ts # Popula as permissões do sistema
-├── public/                # Front-end estático (HTML/CSS/JS)
-│   ├── index.html         # Login
-│   ├── home.html          # Início
-│   ├── livros.html        # Acervo (grid de livros + filtros)
-│   ├── cadastro-livros.html
-│   ├── locacao.html          # Confirmar locação
-│   ├── minhas-locacoes.html  # Locações do usuário + histórico
-│   ├── admin-usuarios.html   # Cadastro/gestão de usuários (admin)
-│   ├── dashboard.html        # Dashboard (admin)
-│   ├── esqueci-senha.html
-│   ├── redefinir-senha.html
-│   ├── css/estilo.css
-│   └── js/layout.js       # Header/menu, guards e helpers de validação
+├── public/                    # Front-end estático (ES Modules, sem JS inline no HTML)
+│   ├── index.html             # Login (com a logo da Sancon)
+│   ├── home.html              # Início — dashboard PESSOAL do usuário
+│   ├── dashboard.html         # Painel geral — indicadores de todos (admin)
+│   ├── livros.html            # Acervo (cards de livros + filtros)
+│   ├── locacao.html           # Confirmar locação
+│   ├── minhas-locacoes.html   # Minhas locações (cards + histórico em modal)
+│   ├── admin-usuarios.html    # Cadastro/gestão de usuários (admin)
+│   ├── esqueci-senha.html / redefinir-senha.html
+│   ├── img/sancon.svg         # Logo da Sancon (favicon e telas)
+│   ├── css/estilo.css         # Estilos + design tokens (tema claro/escuro)
+│   └── js/                    # Front-end separado em camadas de responsabilidade
+│       ├── api.js             # Camada de dados — concentra as chamadas à API
+│       ├── ui.js              # Ícones, modais, mensagens e validação de campos
+│       ├── theme.js           # Modo claro/escuro (persistido no navegador)
+│       ├── layout.js          # Sidebar/topbar + guard de acesso (exigirAcesso)
+│       └── pages/             # Um controlador por tela (login, acervo, home, …)
 ├── .env.example           # Modelo de variáveis de ambiente
 ├── tsconfig.json          # Configuração do compilador TypeScript
 ├── Dockerfile             # Imagem Docker da aplicação
@@ -95,9 +99,11 @@ As permissões possíveis (populadas via seed, ver abaixo):
 | `LOCAR_LIVROS` | Locar livros |
 | `DEVOLVER_LIVROS` | Devolver livros |
 | `EXCLUIR_LIVROS` | Excluir livros |
-| `ACESSAR_DASHBOARD` | Acessar dashboard |
+| `ACESSAR_DASHBOARD` | Ver o **dashboard pessoal** na tela Início |
 
 Ao cadastrar um novo `USUARIO` sem permissões explícitas, ele recebe o **conjunto padrão limitado**: `LOCAR_LIVROS`, `DEVOLVER_LIVROS` e `ACESSAR_DASHBOARD`.
+
+> 📊 **Dashboards — pessoal x geral:** a permissão `ACESSAR_DASHBOARD` libera o **dashboard pessoal** (só as locações do próprio usuário) na tela **Início**. O **Painel geral** — indicadores de **todos** os usuários — é uma tela à parte, **exclusiva de administradores** (rota `GET /dashboard` protegida por `exigirAdmin`). Cada usuário, portanto, só enxerga os dados das próprias locações; o admin vê as dele no Início e todas no Painel geral.
 
 A verificação é feita pelo middleware `exigirPermissao(<nome>)` (em [src/middlewares/auth.ts](src/middlewares/auth.ts)), que consulta as permissões do usuário **no banco a cada requisição** — assim, habilitar ou remover uma permissão tem efeito imediato, sem esperar o token expirar. Um administrador gerencia as permissões de um usuário pela rota `PATCH /usuarios/:id/permissoes`.
 
@@ -168,6 +174,15 @@ npm install
 docker compose up -d --build
 ```
 
+> 🌱 **Primeira execução:** as migrations rodam sozinhas no start, mas o banco sobe **vazio**. Popule as permissões e crie o admin inicial rodando os seeds **dentro do container** (uma única vez):
+> ```bash
+> docker compose exec app npx tsx prisma/seed-permissoes.ts
+> docker compose exec app npx tsx prisma/seed-admin.ts
+> ```
+> Depois acesse [http://localhost:3002](http://localhost:3002) e entre com **admin@empresa.com / admin123** (ou os valores de `ADMIN_EMAIL` / `ADMIN_SENHA`).
+>
+> Para **zerar o banco** e recomeçar do zero: `docker compose down -v && docker compose up -d --build` (o `-v` apaga o volume `pgdata` — **irreversível** — e exige rodar os seeds novamente).
+
 **Modo desenvolvimento** (com hot reload, banco via Docker):
 
 ```bash
@@ -216,13 +231,19 @@ O front-end são páginas estáticas em [public/](public/) que consomem a API. O
 |------|---------|--------|-----------|
 | **Login** | `index.html` | Público | Entrada por e-mail/senha; guarda o token JWT e redireciona para o Início. Link para "Esqueci minha senha". |
 | **Esqueci / Redefinir senha** | `esqueci-senha.html`, `redefinir-senha.html` | Público | Solicita o e-mail de redefinição e define a nova senha a partir do link recebido. |
-| **Início** | `home.html` | Autenticado | Página inicial pós-login com atalhos às áreas conforme a permissão. |
-| **Acervo** | `livros.html` | Autenticado | Grid de cards dos livros com **busca e filtros** (título, autor, editora, ano, status). Cada card mostra o status (Disponível/Locado) e, no hover/foco, as ações permitidas (**Locar**, **+ Exemplar**, **Excluir**). |
-| **Cadastrar livro** | `cadastro-livros.html` | `CADASTRAR_LIVROS` | Formulário de cadastro com **autocomplete de títulos via Open Library** e detecção de duplicados. |
+| **Início** | `home.html` | Autenticado | **Dashboard pessoal**: só as locações do próprio usuário (em dia / atrasadas / devolvidas), próximas devoluções por prazo e situação. Aparece para quem tem `ACESSAR_DASHBOARD` (senão, boas-vindas com atalhos). |
+| **Acervo** | `livros.html` | Autenticado | Cards de livros de **tamanho uniforme** com **busca e filtros** (título, autor, editora, ano, status). Faixa lateral colorida pelo status; **clicar no card abre um modal** com os detalhes. Ações conforme a permissão (**Locar**, **+ Exemplar**, **Excluir**). O cadastro de livro é um **modal** com autocomplete via Open Library e detecção de duplicados. |
 | **Confirmar locação** | `locacao.html` | `LOCAR_LIVROS` | Confirma o empréstimo de um livro selecionado no acervo, definindo o prazo. |
-| **Minhas locações** | `minhas-locacoes.html` | Autenticado | Lista as locações ativas e o histórico; permite **devolver** (admins veem todas). |
+| **Minhas locações** | `minhas-locacoes.html` | Autenticado | **Cards** das locações ativas do próprio usuário, com o **prazo destacado por cor** (em dia / vencendo / atrasado); clicar no card mostra os detalhes. Botão **Devolver** (com confirmação) e **histórico** em modal com filtro. |
 | **Gerenciar usuários** | `admin-usuarios.html` | Administrador | **Cadastro de novo usuário** (com validação de campos, CPF e e-mail), edição de dados/perfil e habilitação/remoção de permissões. |
-| **Dashboard** | `dashboard.html` | Administrador | Indicadores do acervo, ranking de usuários e últimas locações. |
+| **Painel geral** | `dashboard.html` | Administrador | Indicadores de **todos** os usuários: totais do acervo, ranking de locadores, situação do acervo e últimas locações. |
+
+### Interface
+
+- **Front-end em camadas** (ES Modules, sem JavaScript inline no HTML): dados (`api.js`), apresentação (`ui.js`), tema (`theme.js`), layout/guards (`layout.js`) e um controlador por tela em `js/pages/`.
+- **Modo claro / escuro** — botão de tema (ícone) ao lado do usuário na barra superior; a escolha é **persistida** no navegador e, na primeira visita, respeita a preferência do sistema operacional.
+- **Design responsivo** com sidebar retrátil no mobile, e cards que se adaptam à largura da tela.
+- **Identidade Sancon** — a logo aparece no **favicon** (aba do navegador), na tela de login e no rodapé da barra lateral.
 
 ## ✅ Validações e tratamento de erros
 
@@ -240,7 +261,7 @@ O sistema padroniza validações e mensagens para nunca quebrar nem expor erros 
 ```
 
 - `erro` — mensagem amigável, pronta para exibir.
-- `campos` (opcional) — mapa `campo → mensagem`; o front-end usa para **destacar** o input inválido (borda vermelha + texto abaixo) via `aplicarErros()` em [public/js/layout.js](public/js/layout.js).
+- `campos` (opcional) — mapa `campo → mensagem`; o front-end usa para **destacar** o input inválido (borda vermelha + texto abaixo) via `aplicarErros()` em [public/js/ui.js](public/js/ui.js).
 
 **Erros de banco:** violações conhecidas do Prisma são traduzidas para respostas amigáveis (registro duplicado → `409`, não encontrado → `404`) em [src/utils/erros.ts](src/utils/erros.ts). Nunca é exposto SQL ou stack trace.
 
@@ -779,11 +800,12 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 - 👥 Cadastro de usuários com perfil, setor e permissões (restrito a administradores)
 - 🛠️ Tela de administração para listar usuários, editar dados/perfil e gerenciar permissões
 - 📖 Cadastro de livros e controle de exemplares, com detecção de duplicados, reforço de exemplares e remoção (soft delete) restrita a administradores
-- 🗂️ Acervo em grid de cards, com status (Disponível/Locado) e ações conforme a permissão do usuário
-- 🔄 Locação e devolução de livros, com tela de "Minhas locações" (ativas + histórico) e escopo por perfil
-- 📊 Dashboard administrativo
+- 🗂️ Acervo em cards de tamanho uniforme, com status colorido, detalhes em modal e ações conforme a permissão do usuário
+- 🔄 Locação e devolução de livros, com "Minhas locações" em cards e **prazo destacado por cor** (em dia / vencendo / atrasado) e histórico filtrável em modal
+- 📊 **Dashboard pessoal** na tela Início (locações do próprio usuário) e **Painel geral** para administradores (indicadores de todos)
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api) — autocomplete de títulos no cadastro de livros
 - 🧭 Menu e ações exibidos conforme as permissões do usuário (com bloqueio real no back-end)
+- 🌓 **Modo claro/escuro** persistido, e interface responsiva com identidade visual da Sancon
 - ✅ Validações padronizadas (campos obrigatórios, e-mail e **CPF por dígitos verificadores**) com mensagens amigáveis e destaque de campos inválidos
 - 🛡️ Tratamento centralizado de erros — o sistema não expõe erros internos nem quebra em falhas de banco ou da API externa
 
