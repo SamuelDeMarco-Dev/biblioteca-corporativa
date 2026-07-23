@@ -21,20 +21,36 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 template-node-mvc/
 ├── src/
 │   ├── server.ts          # Ponto de entrada da aplicação
-│   ├── app.ts             # Configuração do Express (middlewares e rotas)
+│   ├── app.ts             # Express + middleware global de erro
 │   ├── routes/            # Definição das rotas (ex.: usuario.routes.ts)
 │   ├── controllers/       # Camada HTTP (req/res, status codes)
 │   ├── services/          # Regra de negócio e acesso ao Prisma
 │   ├── middlewares/       # Autenticação e autorização (auth.ts)
 │   ├── schemas/           # Validação de entrada com Zod
+│   ├── constants/         # Constantes do domínio (ex.: permissoes.ts)
+│   ├── utils/             # Utilitários: cpf.ts (validação) e erros.ts (padrão de erro)
 │   ├── lib/
-│   │   └── prisma.ts      # Instância única do Prisma Client
+│   │   ├── prisma.ts      # Instância única do Prisma Client
+│   │   └── mailer.ts      # Envio de e-mail (Nodemailer)
 │   └── generated/         # Client do Prisma gerado (não versionado)
 ├── prisma/
 │   ├── schema.prisma      # Definição das tabelas e relacionamentos
-│   └── migrations/        # Histórico de migrations (versionado)
-├── public/
-│   └── index.html         # Arquivos estáticos (front-end)
+│   ├── migrations/        # Histórico de migrations (versionado)
+│   ├── seed-admin.ts      # Cria o primeiro administrador
+│   └── seed-permissoes.ts # Popula as permissões do sistema
+├── public/                # Front-end estático (HTML/CSS/JS)
+│   ├── index.html         # Login
+│   ├── home.html          # Início
+│   ├── livros.html        # Acervo (grid de livros + filtros)
+│   ├── cadastro-livros.html
+│   ├── locacao.html          # Confirmar locação
+│   ├── minhas-locacoes.html  # Locações do usuário + histórico
+│   ├── admin-usuarios.html   # Cadastro/gestão de usuários (admin)
+│   ├── dashboard.html        # Dashboard (admin)
+│   ├── esqueci-senha.html
+│   ├── redefinir-senha.html
+│   ├── css/estilo.css
+│   └── js/layout.js       # Header/menu, guards e helpers de validação
 ├── .env.example           # Modelo de variáveis de ambiente
 ├── tsconfig.json          # Configuração do compilador TypeScript
 ├── Dockerfile             # Imagem Docker da aplicação
@@ -84,6 +100,11 @@ As permissões possíveis (populadas via seed, ver abaixo):
 Ao cadastrar um novo `USUARIO` sem permissões explícitas, ele recebe o **conjunto padrão limitado**: `LOCAR_LIVROS`, `DEVOLVER_LIVROS` e `ACESSAR_DASHBOARD`.
 
 A verificação é feita pelo middleware `exigirPermissao(<nome>)` (em [src/middlewares/auth.ts](src/middlewares/auth.ts)), que consulta as permissões do usuário **no banco a cada requisição** — assim, habilitar ou remover uma permissão tem efeito imediato, sem esperar o token expirar. Um administrador gerencia as permissões de um usuário pela rota `PATCH /usuarios/:id/permissoes`.
+
+**Duas camadas de enforcement:**
+
+1. **Front-end (experiência)** — o menu e os botões de ação são montados conforme o `perfil`/`permissoes` retornados por `GET /auth/me`. Itens não permitidos ficam **ocultos** e, ao tentar abrir uma página restrita pela URL, o guard `exigirAcesso()` (em [public/js/layout.js](public/js/layout.js)) **redireciona** o usuário. Isso é apenas usabilidade.
+2. **Back-end (segurança real)** — toda rota sensível é protegida por `autenticar` + `exigirPermissao`/`exigirAdmin`. Mesmo que alguém chame a rota manualmente (curl/Postman), o back-end responde **401/403**. **Esta é a camada que de fato protege o sistema** — o front-end nunca é a fonte de verdade.
 
 ## ⚙️ Pré-requisitos
 
@@ -186,6 +207,46 @@ Resposta esperada:
 | `npx tsx prisma/seed-admin.ts` | Cria o primeiro usuário administrador (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA`) |
 
 > Ao inserir dados manualmente, respeite a ordem de dependência: crie uma **permissão** antes do **usuário**, e um **livro** antes do **exemplar**.
+
+## 🖥️ Telas principais
+
+O front-end são páginas estáticas em [public/](public/) que consomem a API. O cabeçalho com o menu é montado dinamicamente por [public/js/layout.js](public/js/layout.js), exibindo apenas os itens permitidos ao usuário logado.
+
+| Tela | Arquivo | Acesso | Descrição |
+|------|---------|--------|-----------|
+| **Login** | `index.html` | Público | Entrada por e-mail/senha; guarda o token JWT e redireciona para o Início. Link para "Esqueci minha senha". |
+| **Esqueci / Redefinir senha** | `esqueci-senha.html`, `redefinir-senha.html` | Público | Solicita o e-mail de redefinição e define a nova senha a partir do link recebido. |
+| **Início** | `home.html` | Autenticado | Página inicial pós-login com atalhos às áreas conforme a permissão. |
+| **Acervo** | `livros.html` | Autenticado | Grid de cards dos livros com **busca e filtros** (título, autor, editora, ano, status). Cada card mostra o status (Disponível/Locado) e, no hover/foco, as ações permitidas (**Locar**, **+ Exemplar**, **Excluir**). |
+| **Cadastrar livro** | `cadastro-livros.html` | `CADASTRAR_LIVROS` | Formulário de cadastro com **autocomplete de títulos via Open Library** e detecção de duplicados. |
+| **Confirmar locação** | `locacao.html` | `LOCAR_LIVROS` | Confirma o empréstimo de um livro selecionado no acervo, definindo o prazo. |
+| **Minhas locações** | `minhas-locacoes.html` | Autenticado | Lista as locações ativas e o histórico; permite **devolver** (admins veem todas). |
+| **Gerenciar usuários** | `admin-usuarios.html` | Administrador | **Cadastro de novo usuário** (com validação de campos, CPF e e-mail), edição de dados/perfil e habilitação/remoção de permissões. |
+| **Dashboard** | `dashboard.html` | Administrador | Indicadores do acervo, ranking de usuários e últimas locações. |
+
+## ✅ Validações e tratamento de erros
+
+O sistema padroniza validações e mensagens para nunca quebrar nem expor erros internos ao usuário.
+
+**Validação de entrada (Zod):** todos os corpos de requisição são validados por schemas em [src/schemas/](src/schemas/). Campos obrigatórios, formato de e-mail e o **CPF** (validado pelos **dígitos verificadores** — não apenas 11 dígitos, ver [src/utils/cpf.ts](src/utils/cpf.ts)) são checados no back-end. O front-end também valida antes de enviar, para feedback imediato.
+
+**Formato único de erro:** respostas de erro seguem sempre o formato:
+
+```json
+{
+  "erro": "Verifique os campos destacados e tente novamente.",
+  "campos": { "email": "E-mail inválido", "cpf": "CPF inválido" }
+}
+```
+
+- `erro` — mensagem amigável, pronta para exibir.
+- `campos` (opcional) — mapa `campo → mensagem`; o front-end usa para **destacar** o input inválido (borda vermelha + texto abaixo) via `aplicarErros()` em [public/js/layout.js](public/js/layout.js).
+
+**Erros de banco:** violações conhecidas do Prisma são traduzidas para respostas amigáveis (registro duplicado → `409`, não encontrado → `404`) em [src/utils/erros.ts](src/utils/erros.ts). Nunca é exposto SQL ou stack trace.
+
+**Falha na Open Library:** a busca externa tem *timeout* de 5s e, em qualquer falha (rede, timeout ou status inválido), responde `{ indisponivel: true }` — a tela apenas informa que as sugestões estão indisponíveis e permite o cadastro manual, sem travar.
+
+**Rede de segurança:** um middleware global em [src/app.ts](src/app.ts) captura qualquer exceção não prevista, registra o detalhe **apenas no log do servidor** e devolve um `500` genérico (`"Ocorreu um erro inesperado. Tente novamente em instantes."`).
 
 ## 🔌 API
 
@@ -332,7 +393,7 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 | `nome` | string | ✅ | Nome do usuário |
 | `email` | string | ✅ | E-mail (único e em formato válido) |
 | `setor` | enum | ✅ | Um dos setores: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA` |
-| `cpf` | string | ✅ | CPF com 11 dígitos (único) |
+| `cpf` | string | ✅ | 11 dígitos, **validado pelos dígitos verificadores** (não apenas o formato); único |
 | `senha` | string | ✅ | Mínimo de 6 caracteres (armazenada com hash) |
 | `perfil` | enum | ✅ | `ADMINISTRADOR` ou `USUARIO` |
 | `permissoesIds` | number[] | ❌ | IDs de permissões específicas a vincular |
@@ -344,7 +405,7 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
   "nome": "Maria Silva",
   "email": "maria@empresa.com",
   "setor": "TI",
-  "cpf": "12345678901",
+  "cpf": "52998224725",
   "senha": "senha123",
   "perfil": "USUARIO",
   "permissoesIds": [1, 2]
@@ -356,7 +417,7 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 | Status | Situação |
 |--------|----------|
 | `201 Created` | Usuário cadastrado (a senha nunca é retornada) |
-| `400 Bad Request` | Campos inválidos (validação Zod) ou JSON malformado |
+| `400 Bad Request` | Campos inválidos — retorna `{ erro, campos }` (ver [Validações e erros](#-validações-e-tratamento-de-erros)) |
 | `401 Unauthorized` | Token ausente ou inválido |
 | `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
 | `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
@@ -722,6 +783,9 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 - 🔄 Locação e devolução de livros, com tela de "Minhas locações" (ativas + histórico) e escopo por perfil
 - 📊 Dashboard administrativo
 - 🌐 Integração com a [Open Library API](https://openlibrary.org/developers/api) — autocomplete de títulos no cadastro de livros
+- 🧭 Menu e ações exibidos conforme as permissões do usuário (com bloqueio real no back-end)
+- ✅ Validações padronizadas (campos obrigatórios, e-mail e **CPF por dígitos verificadores**) com mensagens amigáveis e destaque de campos inválidos
+- 🛡️ Tratamento centralizado de erros — o sistema não expõe erros internos nem quebra em falhas de banco ou da API externa
 
 ## 👤 Autor
 
