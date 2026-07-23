@@ -30,8 +30,7 @@
 
     async function init() {
       // apenas administradores (gate no cliente; o backend também bloqueia)
-      const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
-      if (me.perfil !== 'ADMINISTRADOR') { location.href = '/home.html'; return; }
+      if (!(await window.exigirAcesso({ admin: true }))) return;
 
       const resp = await fetch('/dashboard', { headers: authHeaders });
       if (resp.status === 403) { location.href = '/home.html'; return; }
@@ -53,7 +52,8 @@
         ? d.ultimasLocacoes.map((l) => `<tr><td>${l.livro}</td><td>${l.usuario}</td><td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td><td>${l.devolvido ? 'Devolvido' : 'Ativa'}</td></tr>`).join('')
         : `<tr><td colspan="5"><em>Sem locações</em></td></tr>`;
     }
-    init();
+    // aguarda o layout.js (defer) carregar antes de usar window.exigirAcesso
+    document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>

@@ -20,7 +20,7 @@ export function exigirPermissao(permissao: string) {
 
         const temPermissao = usuario?.permissoes.some((p) => p.nome === permissao);
         if(!temPermissao){
-            return res.status(403).json({ erro: 'Você não tem permissão para esta ação '});
+            return res.status(403).json({ erro: 'Você não tem permissão para esta ação'});
         }
 
         next();

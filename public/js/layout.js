@@ -35,6 +35,23 @@
     document.getElementById('btnSair').addEventListener('click', () => { localStorage.clear(); location.href = '/'; });
   }
 
+  // Guard de acesso reutilizável: consulta o backend (/auth/me), que é a fonte
+  // confiável de perfil/permissões, e redireciona quem não pode. Devolve o
+  // usuário para a página reaproveitar (evita um segundo /auth/me).
+  window.exigirAcesso = async function ({ permissao, admin } = {}) {
+    if (!token) { location.href = '/'; return null; }
+    let me;
+    try {
+      me = await (await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } })).json();
+    } catch { location.href = '/'; return null; }
+    if (!me || !me.perfil) { localStorage.clear(); location.href = '/'; return null; }
+    const ehAdmin = me.perfil === 'ADMINISTRADOR';
+    const pode = ehAdmin || (me.permissoes || []).includes(permissao);
+    if (admin && !ehAdmin) { location.href = '/home.html'; return null; }
+    if (permissao && !pode) { location.href = '/home.html'; return null; }
+    return me;
+  };
+
   // Helper global de mensagens (sucesso | erro | aviso)
   window.mensagem = function (texto, tipo = 'sucesso') {
     let box = document.getElementById('app-msg');

@@ -17,18 +17,15 @@
 
   <script>
     const token = localStorage.getItem('token');
-    const usuarioLogado = JSON.parse(localStorage.getItem('usuario') || 'null');
-
-    if (!usuarioLogado || usuarioLogado.perfil !== 'ADMINISTRADOR') {
-      location.href = '/home.html';
-    }
-
     const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
     const confirmar = (texto, tipo = 'sucesso') => mensagem(texto, tipo);
 
     let permissoes = [];
 
     async function carregar() {
+      // gate no cliente pela fonte confiável (/auth/me); o backend também bloqueia
+      if (!(await window.exigirAcesso({ admin: true }))) return;
+
       const [rU, rP] = await Promise.all([
         fetch('/usuarios',   { headers: authHeaders }),
         fetch('/permissoes', { headers: authHeaders }),
@@ -88,7 +85,8 @@
       confirmar(`Permissão ${cb.checked ? 'habilitada' : 'desabilitada'} para o usuário #${uid}.`);
     }
 
-    carregar();
+    // aguarda o layout.js (defer) carregar antes de usar window.exigirAcesso
+    document.addEventListener('DOMContentLoaded', carregar);
   </script>
 </body>
 </html>
