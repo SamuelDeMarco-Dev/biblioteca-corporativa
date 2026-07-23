@@ -46,7 +46,10 @@ export async function iniciarLayout() {
   aside.innerHTML = `
     <div class="marca">${marca()} Biblioteca</div>
     <nav>${links.map(([h, t, ic]) => `<a href="${h}" class="${atual === h ? 'ativo' : ''}">${icone(ic)}<span>${t}</span></a>`).join('')}</nav>
-    <div class="rodape"><div class="powered">Biblioteca Interna</div></div>`;
+    <div class="rodape">
+      <div class="marca-sancon"><span class="logo-chip"><img src="/img/sancon.svg" alt="Sancon" /></span> Sancon</div>
+      <div class="powered">Biblioteca Interna</div>
+    </div>`;
 
   const titulo = (document.querySelector('main h1')?.textContent || document.title || '').trim();
   const header = document.createElement('header');
