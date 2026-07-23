@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" /><title>Minhas locações</title>
   <link rel="stylesheet" href="/css/estilo.css" />
-  <script src="/js/layout.js" defer></script>
+  <script type="module" src="/js/pages/minhas-locacoes.js"></script>
   <style>
     .badge.ATIVA { background: var(--sucesso); }
     .badge.ATRASADA { background: var(--erro); }
@@ -28,75 +28,5 @@
       </div>
     </section>
   </main>
-
-  <script>
-    const token = localStorage.getItem('token');
-    if (!token) location.href = '/';
-    const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-    const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
-    let ehAdmin = false;
-
-    async function init() {
-      const me = await (await fetch('/auth/me', { headers: authHeaders })).json();
-      ehAdmin = me.perfil === 'ADMINISTRADOR';
-      if (ehAdmin) document.getElementById('titulo').textContent = 'Locações (todos os usuários)';
-
-      const locacoes = await (await fetch('/locacoes', { headers: authHeaders })).json();
-      const ativas = locacoes.filter((l) => l.ativa);
-      const historico = locacoes.filter((l) => !l.ativa);
-
-      document.getElementById('contAtivas').textContent = ativas.length;
-      document.getElementById('contHist').textContent = historico.length;
-
-      montarCabecalhos();
-      render(ativas, 'ativas', true);
-      render(historico, 'historico', false);
-    }
-
-    function montarCabecalhos() {
-      const base = ['Livro', 'Exemplar', 'Locação', 'Prazo', 'Status'];
-      const cols = ehAdmin ? ['Usuário', ...base] : base;
-      document.getElementById('thAtivas').innerHTML = cols.map((c) => `<th>${c}</th>`).join('') + '<th>Ação</th>';
-      document.getElementById('thHist').innerHTML   = cols.map((c) => `<th>${c}</th>`).join('') + '<th>Devolvido em</th>';
-    }
-
-    function render(lista, tbodyId, ativas) {
-      const tbody = document.getElementById(tbodyId);
-      if (!lista.length) { tbody.innerHTML = `<tr><td class="vazio" colspan="8">Nenhuma locação por aqui.</td></tr>`; return; }
-      tbody.innerHTML = lista.map((l) => {
-        const usuarioCol = ehAdmin ? `<td>${l.usuario?.nome ?? '—'}</td>` : '';
-        const acao = ativas
-          ? `<td><button class="btn btn-primario" onclick="devolver(${l.id}, '${l.livro.replace(/'/g, "\\'")}')">Devolver</button></td>`
-          : `<td>${fmt(l.dataDevolucao)}</td>`;
-        return `<tr>
-          ${usuarioCol}
-          <td>${l.livro}</td><td>${l.exemplar}</td>
-          <td>${fmt(l.dataLocacao)}</td><td>${fmt(l.prazo)}</td>
-          <td><span class="badge ${l.status}">${l.status}</span></td>
-          ${acao}
-        </tr>`;
-      }).join('');
-    }
-
-    async function devolver(id, titulo) {
-      const ok = await window.confirmarModal({
-        titulo: 'Confirmar devolução',
-        mensagem: `Confirmar a devolução de "${titulo}"?`,
-        textoConfirmar: 'Devolver',
-      });
-      if (!ok) return;
-      const resp = await fetch(`/locacoes/${id}/devolver`, { method: 'PATCH', headers: authHeaders });
-      const dados = await resp.json();
-      if (!resp.ok) {
-        mensagem((dados.erro || '').trim() === 'Você não tem permissão para esta ação'
-          ? 'Você não tem permissão para devolver livros.' : (dados.erro || 'Falha na devolução'), 'erro');
-        return;
-      }
-      mensagem('Devolução registrada!', 'sucesso');
-      init();
-    }
-
-    init();
-  </script>
 </body>
 </html>

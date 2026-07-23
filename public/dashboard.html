@@ -3,9 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <title>Dashboard</title>
-  <!-- O dashboard passou a ser a tela inicial (home.html). Mantemos este arquivo
-       apenas como redirecionamento para não quebrar links/favoritos antigos. -->
-  <script>location.replace('/home.html');</script>
+  <!-- O dashboard passou a ser a tela inicial (home.html). Redirecionamento sem JS. -->
+  <meta http-equiv="refresh" content="0; url=/home.html" />
+  <link rel="stylesheet" href="/css/estilo.css" />
 </head>
-<body></body>
+<body>
+  <main class="form-centro"><p>Redirecionando… <a href="/home.html">Ir para o início</a></p></main>
+</body>
 </html>

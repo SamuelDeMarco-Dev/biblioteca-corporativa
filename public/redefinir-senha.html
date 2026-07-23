@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>Nova senha</title>
   <link rel="stylesheet" href="/css/estilo.css" />
-  <script src="/js/layout.js" defer></script>
+  <script type="module" src="/js/pages/redefinir-senha.js"></script>
 </head>
 <body>
   <main class="form-centro">
@@ -15,21 +15,5 @@
       <button type="submit" class="btn btn-primario">Salvar</button>
     </form>
   </main>
-
-  <script>
-    const token = new URLSearchParams(location.search).get('token');
-    document.getElementById('form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const resp = await fetch('/auth/redefinir-senha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, novaSenha: document.getElementById('senha').value }),
-      });
-      const dados = await resp.json();
-      if (!resp.ok) { mensagem(dados.erro || 'Falha ao redefinir', 'erro'); return; }
-      mensagem('Senha redefinida! Redirecionando para o login...', 'sucesso');
-      setTimeout(() => (location.href = '/'), 1500);
-    });
-  </script>
 </body>
 </html>

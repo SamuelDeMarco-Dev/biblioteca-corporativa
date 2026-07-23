@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>Login — Biblioteca Interna</title>
   <link rel="stylesheet" href="/css/estilo.css" />
-  <script src="/js/layout.js" defer></script>
+  <script type="module" src="/js/pages/login.js"></script>
 </head>
 <body class="tela-login">
   <div class="login">
@@ -36,36 +36,5 @@
       <div class="login-rodape">Powered by Biblioteca Interna</div>
     </main>
   </div>
-
-  <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      window.limparErros(e.target);
-
-      const email = document.getElementById('email').value.trim();
-      const senha = document.getElementById('senha').value;
-
-      // validação local imediata
-      const erros = {};
-      if (!window.validacoes.email(email)) erros.email = 'E-mail inválido';
-      if (!senha) erros.senha = 'Senha é obrigatória';
-      if (Object.keys(erros).length) { window.aplicarErros(erros, e.target); return; }
-
-      const resp = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, senha }),
-      });
-      const dados = await resp.json();
-      if (!resp.ok) {
-        window.aplicarErros(dados.campos, e.target);
-        mensagem(dados.erro || 'Falha no login', 'erro');
-        return;
-      }
-      localStorage.setItem('token', dados.token);
-      localStorage.setItem('usuario', JSON.stringify(dados.usuario));
-      window.location.href = '/home.html';
-    });
-  </script>
 </body>
 </html>
