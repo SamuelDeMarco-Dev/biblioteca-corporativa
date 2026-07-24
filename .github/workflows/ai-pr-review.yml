@@ -1,0 +1,150 @@
+# Review de PR por IA — AUTOMÁTICA em TODO PR, depois que os demais checks
+# (CI, Quality Gate, Semgrep, Trivy) passaram. Sem gate de tamanho.
+#
+# Pré-requisitos no repo (secrets, configurar em Settings > Secrets and variables > Actions):
+#   - ANTHROPIC_API_KEY — chave da API (review por IA)
+#   - GH_PAT            — PAT com read nos repos de plugin (sancon-skills, agent-skills) na org
+#                          antoniv-informatica-ltda. Sem acesso a esses repos, este job falha —
+#                          ajuste SANCON_SKILLS_REPO/AGENT_SKILLS_REPO ou remova o job se não aplicável.
+#
+# A Issue mora no GitHub (repo#N); o número é extraído da branch e a Issue é lida via `gh issue view`.
+
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  REQUIRED_CHECKS: 'quality quality-gate semgrep-scan trivy-scan'
+  WAIT_TIMEOUT_SECONDS: '1800'
+  SANCON_SKILLS_REPO: 'antoniv-informatica-ltda/sancon-skills'
+  AGENT_SKILLS_REPO: 'antoniv-informatica-ltda/agent-skills'
+
+jobs:
+  # ── Portão: só segue se os demais checks passaram (sem gate de tamanho) ───────
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.decide.outputs.eligible }}
+    steps:
+      - name: Decide elegibilidade (checks verdes)
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          DEADLINE=$(( $(date +%s) + WAIT_TIMEOUT_SECONDS ))
+          while true; do
+            RUNS=$(gh api "repos/$REPO/commits/$SHA/check-runs" --paginate \
+                     --jq '.check_runs[] | {name, status, conclusion}')
+            ALL_DONE=true
+            for c in $REQUIRED_CHECKS; do
+              LINE=$(echo "$RUNS" | jq -c "select(.name==\"$c\")" | tail -1)
+              if [ -z "$LINE" ]; then ALL_DONE=false; continue; fi
+              ST=$(echo "$LINE" | jq -r .status)
+              CC=$(echo "$LINE" | jq -r .conclusion)
+              [ "$ST" != "completed" ] && ALL_DONE=false
+              if [ "$ST" = "completed" ] && [ "$CC" != "success" ]; then
+                echo "Check '$c' concluiu como '$CC' — review por IA não será executada."
+                echo "eligible=false" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+            done
+            if [ "$ALL_DONE" = true ]; then
+              echo "Todos os checks obrigatórios passaram — review elegível."
+              echo "eligible=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "Timeout aguardando os checks — review não será executada."
+              echo "eligible=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            sleep 30
+          done
+
+  # ── Review: roda só se elegível ──────────────────────────────────────────────
+  review:
+    needs: gate
+    if: needs.gate.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Resolve PR
+        id: pr
+        run: |
+          DATA=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '{branch: .head.ref, sha: .head.sha, base_sha: .base.sha}')
+          echo "branch=$(echo "$DATA" | jq -r .branch)"     >> "$GITHUB_OUTPUT"
+          echo "sha=$(echo "$DATA" | jq -r .sha)"           >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(echo "$DATA" | jq -r .base_sha)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Extrai número da Issue da branch (<type>/N-slug)
+        id: issue
+        run: |
+          NUM=$(echo "${{ steps.pr.outputs.branch }}" | sed -nE 's#^[^/]+/([0-9]+).*#\1#p' || true)
+          echo "issue_number=$NUM" >> "$GITHUB_OUTPUT"
+
+      - name: Carrega plugins de skills (sancon-skills + agent-skills)
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://oauth2:${GH_PAT}@github.com/${SANCON_SKILLS_REPO}.git" "$RUNNER_TEMP/sancon-skills"
+          git clone --depth 1 "https://oauth2:${GH_PAT}@github.com/${AGENT_SKILLS_REPO}.git"  "$RUNNER_TEMP/agent-skills"
+
+      - name: Claude Code — review
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 30
+        env:
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+          GH_TOKEN: ${{ github.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: true
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --max-turns 30
+            --max-thinking-tokens 10000
+            --plugin-dir ${{ runner.temp }}/sancon-skills
+            --plugin-dir ${{ runner.temp }}/agent-skills
+            --allowedTools Bash,Read,Grep,Glob,Skill,Agent
+          prompt: |
+            You are an automated PR reviewer running in GitHub Actions. The gh CLI is available and authenticated.
+
+            Use the **sancon-pr-review** skill and follow its protocol exactly. That skill composes
+            `code-review-and-quality` and `security-and-hardening` (both loaded as plugins) — load them
+            via the Skill tool as the protocol instructs.
+
+            Validate the PR against:
+            - The GitHub issue (ISSUE_NUMBER) — ALWAYS. Fetch it with
+              `gh issue view "$ISSUE_NUMBER" --json title,body,labels` to read its acceptance criteria.
+              If ISSUE_NUMBER is empty, say so in the comment (requirement not verifiable) instead of inventing one.
+            - The PRD and TDD, ONLY IF attached to or linked from the issue or PR body.
+
+            Context:
+            - Repository: ${{ github.repository }}
+            - PR Number: ${{ env.PR_NUMBER }}
+            - PR Head SHA: ${{ steps.pr.outputs.sha }}
+            - PR Base SHA: ${{ steps.pr.outputs.base_sha }}
+            - Branch: ${{ steps.pr.outputs.branch }}
+            - Issue number: ${{ steps.issue.outputs.issue_number }}
+
+            Post the review as the sticky comment defined by the protocol (marker <!-- ai-pr-review -->).
+            Do NOT modify any files. Do NOT approve or request-changes via gh pr review.

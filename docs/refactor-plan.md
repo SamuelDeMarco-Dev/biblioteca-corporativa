@@ -5,7 +5,7 @@
 > `sancon-harness`.
 
 **Objetivo:** alinhar o projeto ao padrão Sancon sem regressão funcional.
-**Estratégia:** *strangler* por módulo — infra e portões primeiro, depois migração
+**Estratégia:** _strangler_ por módulo — infra e portões primeiro, depois migração
 módulo a módulo, cada um num PR pequeno e verde. **A qualidade só sobe.**
 
 Estrutura sugerida no GitHub: **1 Epic** + **8 sub-issues** linkadas.
@@ -24,13 +24,13 @@ Pontos positivos: nenhum arquivo passa de 500 linhas (maior = 171),
 
 ### Violações de invariante (arnês)
 
-| # | Item | Onde | Regra |
-|---|------|------|-------|
-| 1 | `any` no TypeScript | `livro.service.ts:123` (`d: any`) e `:162` (`client: any`) | usar `unknown` / `Prisma.TransactionClient` |
-| 2 | Sem ESLint/Prettier | raiz | toolchain obrigatória TS backend |
-| 3 | Sem workflows de CI (`.github/`) | raiz | CI + Quality Gate + Semgrep + Trivy + AI Review |
-| 4 | Zero testes | — | padrão Sancon: Vitest + Supertest |
-| 5 | Sem `CLAUDE.md` | raiz | regras/Do-Not/verificação do repo |
+| #   | Item                             | Onde                                                       | Regra                                           |
+| --- | -------------------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| 1   | `any` no TypeScript              | `livro.service.ts:123` (`d: any`) e `:162` (`client: any`) | usar `unknown` / `Prisma.TransactionClient`     |
+| 2   | Sem ESLint/Prettier              | raiz                                                       | toolchain obrigatória TS backend                |
+| 3   | Sem workflows de CI (`.github/`) | raiz                                                       | CI + Quality Gate + Semgrep + Trivy + AI Review |
+| 4   | Zero testes                      | —                                                          | padrão Sancon: Vitest + Supertest               |
+| 5   | Sem `CLAUDE.md`                  | raiz                                                       | regras/Do-Not/verificação do repo               |
 
 ### Desvios de arquitetura (`sancon-express-arch`)
 
@@ -48,14 +48,14 @@ Sem isto, nenhuma fase seguinte é verificável pelos portões. Não toca em arq
 
 **Issue (Chore, G) — `chore: bootstrap do arnês de qualidade`** · branch `chore/N-arnes-qualidade`
 
-| Passo | Entrega | Detalhe |
-|---|---|---|
-| 0.1 | ESLint + Prettier | toolchain TS backend; regra `no-explicit-any` ativa |
-| 0.2 | Scripts npm | `lint`, `format:check`, `typecheck` (`tsc --noEmit`) |
-| 0.3 | `CLAUDE.md` | ≤50 linhas, 5 seções, em inglês (template do harness) |
-| 0.4 | Workflows `.github/` | `ci.yml`, `quality-gate.yml`, `semgrep.yml` + `trivy` |
-| 0.5 | Baseline | `quality:baseline` gerado; Semgrep sem `--error` na 1ª rodada |
-| 0.6 | Test runner | migrar `jest` → Vitest + Supertest (só config; testes vêm nas fases) |
+| Passo | Entrega              | Detalhe                                                              |
+| ----- | -------------------- | -------------------------------------------------------------------- |
+| 0.1   | ESLint + Prettier    | toolchain TS backend; regra `no-explicit-any` ativa                  |
+| 0.2   | Scripts npm          | `lint`, `format:check`, `typecheck` (`tsc --noEmit`)                 |
+| 0.3   | `CLAUDE.md`          | ≤50 linhas, 5 seções, em inglês (template do harness)                |
+| 0.4   | Workflows `.github/` | `ci.yml`, `quality-gate.yml`, `semgrep.yml` + `trivy`                |
+| 0.5   | Baseline             | `quality:baseline` gerado; Semgrep sem `--error` na 1ª rodada        |
+| 0.6   | Test runner          | migrar `jest` → Vitest + Supertest (só config; testes vêm nas fases) |
 
 **Aceite:** `lint`, `format:check`, `typecheck`, `build` verdes localmente. Nenhuma
 mudança de comportamento.
@@ -103,13 +103,13 @@ Alvo por módulo: `src/modules/<nome>/` com
 
 Ordem por risco crescente (mais simples/isolado primeiro):
 
-| Sub-issue | Módulo | Branch | Notas de migração |
-|---|---|---|---|
-| 3.1 | auth | `refactor/N-modulo-auth` | login/reset; extrai acesso a `prisma` do controller `me` para repository |
-| 3.2 | usuario | `refactor/N-modulo-usuario` | + mover a checagem de permissão do `auth.ts` para service/repository |
-| 3.3 | livro | `refactor/N-modulo-livro` | maior service; isolar `buscarLivrosExternos` (Open Library) num client em `shared/` |
-| 3.4 | locacao | `refactor/N-modulo-locacao` | mover `ehAdmin`/`todos` do controller → service; trocar uniões `{ erro }` por `throw DomainError` |
-| 3.5 | dashboard + permissao | `refactor/N-modulo-dashboard` | módulos menores, agrupados |
+| Sub-issue | Módulo                | Branch                        | Notas de migração                                                                                 |
+| --------- | --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| 3.1       | auth                  | `refactor/N-modulo-auth`      | login/reset; extrai acesso a `prisma` do controller `me` para repository                          |
+| 3.2       | usuario               | `refactor/N-modulo-usuario`   | + mover a checagem de permissão do `auth.ts` para service/repository                              |
+| 3.3       | livro                 | `refactor/N-modulo-livro`     | maior service; isolar `buscarLivrosExternos` (Open Library) num client em `shared/`               |
+| 3.4       | locacao               | `refactor/N-modulo-locacao`   | mover `ehAdmin`/`todos` do controller → service; trocar uniões `{ erro }` por `throw DomainError` |
+| 3.5       | dashboard + permissao | `refactor/N-modulo-dashboard` | módulos menores, agrupados                                                                        |
 
 **Padrão de cada PR (idêntico):**
 

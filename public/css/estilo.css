@@ -1,36 +1,50 @@
-/* ===================== TEMA (tokens) ===================== */
+/* ===================== TEMA (tokens Sancon Design System) ===================== */
 :root {
-  --primaria: #0c8b73; --primaria-escura: #09342f; --primaria-hover: #0b4d44; --primaria-clara: #48c9b0;
-  --acao: #3d7fd6; --acao-escura: #2f6ac0; --acao-suave: rgba(61,127,214,.15);
-  --sucesso: #2e9e5b; --erro: #c0392b; --aviso: #e08a3c; --teal: #17808d;
-  --texto: #3f4a54; --texto-suave: #7b8794; --titulo: #3f4a54; --label: #5a6672;
-  --fundo: #eef1f4; --card: #ffffff; --superficie-2: #f8fafc; --chip: #eef1f4;
-  --btn-neutro: #e7ebf0; --input-bg: #ffffff; --borda: #e3e8ee; --borda-hover: #cdddf2; --cabecalho-tab: #eef2f6;
-  --alerta-sucesso-bg: #e8f6ee; --alerta-erro-bg: #fdecea; --alerta-aviso-bg: #fdf1e5; --erro-bg: #fff8f8;
+  --primaria: #0D4270; /* primary (navy) — acentos, links, destaque de dado */
+  --primaria-escura: #0D4270; /* brand-navy — sidebar/estrutural */
+  --primaria-clara: #ABD821; /* action (lime) — acento decorativo (gradiente, indicador ativo) */
+  --acao: #ABD821; /* action — CTA (botão primário) */
+  --acao-escura: #96BF1E; /* sancon-gap: sem token de hover p/ action; derivado ~12% mais escuro */
+  --on-acao: #2A3800; /* on-action — texto sobre lime, nunca branco */
+  --foco: #356190; /* state-focus-ring — borda/outline de foco e links secundários */
+  --foco-suave: rgba(13,66,112,.18); /* component.input-focus-glow */
+  --sucesso: #16A34A; --erro: #DC2626; --aviso: #F59E0B; --on-aviso: #3F3F3F; --teal: #0D4270; /* teal = role "info" (navy) */
+  --texto: #1A1C1E; --texto-suave: #43474E; --titulo: #1A1C1E; --label: #43474E;
+  --fundo: #F8F8F8; --card: #FFFFFF; --superficie-2: rgba(13,66,112,.06); --chip: #E6EEF5;
+  --btn-neutro: #DFE2EB; --input-bg: #FFFFFF; --borda: #DCDCDD;
+  --borda-hover: rgba(13,66,112,.35); /* sancon-gap: sem token de borda em hover; derivado de brand-navy */
+  --cabecalho-tab: #E6EEF5; /* surface-navy-pale */
+  --alerta-sucesso-bg: rgba(22,163,74,.12); --alerta-erro-bg: rgba(220,38,38,.10); --alerta-aviso-bg: rgba(245,158,11,.12); --erro-bg: rgba(220,38,38,.05);
+  /* sancon-gap: sem tokens de fundo pálido p/ success/error/warning; derivados por opacidade da cor de estado */
   --overlay: rgba(16,24,40,.55);
-  --sombra: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
-  --sombra-md: 0 4px 12px rgba(16,24,40,.10);
+  --sombra: 0 2px 8px rgba(13,66,112,.08); /* shadow-card */
+  --sombra-md: 0 4px 16px rgba(13,66,112,.10); /* shadow-md */
   --raio: 8px; --gap: 16px; --sidebar-w: 232px;
 }
 :root[data-theme="dark"] {
-  --acao: #5b9be8; --acao-escura: #4a86d1; --acao-suave: rgba(91,155,232,.22);
-  --sucesso: #37b169; --erro: #e05a4b; --aviso: #eb9a52; --teal: #2a97a5;
-  --texto: #d7e0e8; --texto-suave: #93a1ac; --titulo: #e9f0f5; --label: #aab7c1;
-  --fundo: #10161c; --card: #1a222a; --superficie-2: #222c35; --chip: #2a343d;
-  --btn-neutro: #2c3742; --input-bg: #161d24; --borda: #2c3742; --borda-hover: #3a5578; --cabecalho-tab: #212b33;
-  --alerta-sucesso-bg: #14301f; --alerta-erro-bg: #38191a; --alerta-aviso-bg: #372817; --erro-bg: #2a1a1a;
+  --primaria: #6FB0EE; --primaria-escura: #234461; --primaria-clara: #ABD821;
+  --acao: #ABD821; --acao-escura: #96BF1E; --on-acao: #2A3800;
+  --foco: #356190; --foco-suave: rgba(13,66,112,.18);
+  --sucesso: #4FD18B; --erro: #FF8A8A; --aviso: #FCC04D; --on-aviso: #3A2800; --teal: #6FB0EE;
+  --texto: #E8EDF3; --texto-suave: #9FB0C3; --titulo: #E8EDF3; --label: #9FB0C3;
+  --fundo: #0E1621; --card: #16202E; --superficie-2: rgba(111,176,238,.08); --chip: #1B2A3C;
+  --btn-neutro: #1F2C3D; --input-bg: #16202E; --borda: #314256; --borda-hover: rgba(111,176,238,.4); --cabecalho-tab: #1B2A3C;
+  --alerta-sucesso-bg: rgba(79,209,139,.16); --alerta-erro-bg: rgba(255,138,138,.16); --alerta-aviso-bg: rgba(252,192,77,.18); --erro-bg: rgba(255,138,138,.08);
   --overlay: rgba(0,0,0,.62);
   --sombra: 0 1px 3px rgba(0,0,0,.4); --sombra-md: 0 6px 20px rgba(0,0,0,.5);
+  /* sancon-gap: DS não define elevação por tema; mantido tratamento prático (preto opaco) no escuro */
 }
 /* Sem escolha explícita, respeita o sistema (evita flash antes do JS) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --acao: #5b9be8; --acao-escura: #4a86d1; --acao-suave: rgba(91,155,232,.22);
-    --sucesso: #37b169; --erro: #e05a4b; --aviso: #eb9a52; --teal: #2a97a5;
-    --texto: #d7e0e8; --texto-suave: #93a1ac; --titulo: #e9f0f5; --label: #aab7c1;
-    --fundo: #10161c; --card: #1a222a; --superficie-2: #222c35; --chip: #2a343d;
-    --btn-neutro: #2c3742; --input-bg: #161d24; --borda: #2c3742; --borda-hover: #3a5578; --cabecalho-tab: #212b33;
-    --alerta-sucesso-bg: #14301f; --alerta-erro-bg: #38191a; --alerta-aviso-bg: #372817; --erro-bg: #2a1a1a;
+    --primaria: #6FB0EE; --primaria-escura: #234461; --primaria-clara: #ABD821;
+    --acao: #ABD821; --acao-escura: #96BF1E; --on-acao: #2A3800;
+    --foco: #356190; --foco-suave: rgba(13,66,112,.18);
+    --sucesso: #4FD18B; --erro: #FF8A8A; --aviso: #FCC04D; --on-aviso: #3A2800; --teal: #6FB0EE;
+    --texto: #E8EDF3; --texto-suave: #9FB0C3; --titulo: #E8EDF3; --label: #9FB0C3;
+    --fundo: #0E1621; --card: #16202E; --superficie-2: rgba(111,176,238,.08); --chip: #1B2A3C;
+    --btn-neutro: #1F2C3D; --input-bg: #16202E; --borda: #314256; --borda-hover: rgba(111,176,238,.4); --cabecalho-tab: #1B2A3C;
+    --alerta-sucesso-bg: rgba(79,209,139,.16); --alerta-erro-bg: rgba(255,138,138,.16); --alerta-aviso-bg: rgba(252,192,77,.18); --erro-bg: rgba(255,138,138,.08);
     --overlay: rgba(0,0,0,.62);
     --sombra: 0 1px 3px rgba(0,0,0,.4); --sombra-md: 0 6px 20px rgba(0,0,0,.5);
   }
@@ -41,7 +55,7 @@ body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, sans-serif; color:
   background: var(--fundo); line-height: 1.5; transition: background .2s ease, color .2s ease; }
 h1, h2, h3 { margin: 0 0 12px; color: var(--titulo); }
 h2 { font-size: 18px; font-weight: 600; margin-top: 4px; }
-a { color: var(--acao); }
+a { color: var(--primaria); }
 
 /* ===================== Shell ===================== */
 body.app-shell { padding-left: var(--sidebar-w); min-height: 100vh; }
@@ -101,7 +115,7 @@ body.app-shell { padding-left: var(--sidebar-w); min-height: 100vh; }
 .btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 0; border-radius: var(--raio);
   padding: 9px 16px; font-size: 14px; font-weight: 500; background: var(--btn-neutro); color: var(--texto); transition: filter .15s; }
 .btn:hover { filter: brightness(.96); }
-.btn-primario { background: var(--acao); color: #fff; }
+.btn-primario { background: var(--acao); color: var(--on-acao); }
 .btn-primario:hover { background: var(--acao-escura); filter: none; }
 .btn-perigo { background: var(--erro); color: #fff; }
 .btn-sucesso { background: var(--sucesso); color: #fff; }
@@ -110,7 +124,7 @@ body.app-shell { padding-left: var(--sidebar-w); min-height: 100vh; }
 label { display: block; font-size: 13px; margin: 12px 0 4px; font-weight: 600; color: var(--label); }
 input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--borda); border-radius: var(--raio);
   font-size: 14px; background: var(--input-bg); color: var(--texto); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--acao); box-shadow: 0 0 0 3px var(--acao-suave); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--foco); box-shadow: 0 0 0 3px var(--foco-suave); }
 input[type=checkbox] { width: auto; }
 .form { background: var(--card); padding: 24px; border-radius: var(--raio); box-shadow: var(--sombra); border: 1px solid var(--borda); max-width: 480px; }
 .form .btn { margin-top: 16px; width: 100%; justify-content: center; }
@@ -146,11 +160,12 @@ td.vazio { text-align: center; color: var(--texto-suave); font-style: italic; pa
 
 /* ===================== Stat-tiles ===================== */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); margin-bottom: 24px; }
-.card .num { font-size: 34px; font-weight: 700; color: var(--acao); line-height: 1.1; }
+.card .num { font-size: 34px; font-weight: 700; color: var(--primaria); line-height: 1.1; }
 .stat { color: #fff; border: 0; border-radius: var(--raio); padding: 20px 22px; box-shadow: var(--sombra); }
 .stat .num { color: #fff; }
 .stat-teal { background: var(--teal); } .stat-verde { background: var(--sucesso); }
-.stat-laranja { background: var(--aviso); } .stat-vermelho { background: var(--erro); }
+.stat-laranja { background: var(--aviso); color: var(--on-aviso); } .stat-laranja .num { color: var(--on-aviso); }
+.stat-vermelho { background: var(--erro); }
 
 /* ===================== Gráficos do dashboard ===================== */
 .dash-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--gap); }
@@ -181,7 +196,7 @@ td.vazio { text-align: center; color: var(--texto-suave); font-style: italic; pa
 
 /* ===================== Validação ===================== */
 .campo-erro { border-color: var(--erro) !important; background: var(--erro-bg); }
-.campo-erro:focus { border-color: var(--erro) !important; box-shadow: 0 0 0 3px rgba(192,57,43,.15); }
+.campo-erro:focus { border-color: var(--erro) !important; box-shadow: 0 0 0 3px rgba(220,38,38,.15); }
 .msg-campo { color: var(--erro); font-size: .82em; margin: 2px 0 4px; display: block; }
 
 /* ===================== Ações do card (genérico) ===================== */
@@ -210,7 +225,7 @@ td.vazio { text-align: center; color: var(--texto-suave); font-style: italic; pa
 .livro-card.st-REMOVIDO::before { background: var(--texto-suave); }
 /* só o card sob o mouse cresce; os demais ficam estáticos */
 .livro-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: var(--sombra-md); border-color: var(--borda-hover); z-index: 2; }
-.livro-card:focus-visible { outline: 2px solid var(--acao); outline-offset: 2px; }
+.livro-card:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .livro-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 /* título sempre ocupa 2 linhas (reticências se passar) → cards com altura idêntica */
 .livro-topo h3 { margin: 0; font-size: 16px; line-height: 1.3; color: var(--titulo);

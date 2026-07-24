@@ -1,0 +1,8 @@
+dist
+node_modules
+src/generated
+coverage
+public
+package-lock.json
+.claude
+.jscpd-report

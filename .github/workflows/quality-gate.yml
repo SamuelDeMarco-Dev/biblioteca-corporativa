@@ -1,0 +1,102 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main, staging]
+  # Push em main = código aprovado/melhorado, então regravamos o baseline automaticamente.
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Roda ESLint + jscpd + lê cobertura, compara com baseline.json e gera summary.md.
+      - name: Run tests (generate coverage for the gate)
+        run: npm run test
+        continue-on-error: true
+
+      - name: Run quality gate
+        id: gate
+        run: npm run quality:gate
+        continue-on-error: true
+
+      - name: Publish to job summary
+        if: always()
+        run: cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Comentário sticky no PR (atualiza no lugar em vez de empilhar).
+      - name: Comment on PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MARKER="<!-- quality-gate -->"
+          BODY="$(printf '%s\n%s' "$MARKER" "$(cat summary.md)")"
+          CID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+          if [ -n "$CID" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/$CID -X DELETE
+          fi
+          gh pr comment ${{ github.event.number }} --body "$BODY"
+
+      - name: Enforce gate
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "Quality gate reprovou — veja a tabela no summary/PR."
+          exit 1
+
+  # Push em main: regrava o baseline com o estado atual e commita de volta.
+  update-baseline:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (generate coverage)
+        run: npm run test
+        continue-on-error: true
+
+      - name: Regenerate baseline
+        run: npm run quality:baseline
+
+      - name: Commit baseline if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet baseline.json; then
+            echo "baseline inalterado"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baseline.json
+          git commit -m "chore(quality): atualiza baseline a partir da main [skip ci]"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:main

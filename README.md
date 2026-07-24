@@ -4,7 +4,7 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 
 ## 🛠️ Tecnologias
 
-- **Node.js 22** com **Express** — servidor web (arquitetura MVC)
+- **Node.js 22** com **Express** — servidor web (módulos `router → service → repository`)
 - **TypeScript** — tipagem estática (compilado com `tsc`, executado em dev com `tsx`)
 - **PostgreSQL** — banco de dados
 - **Prisma ORM 7** — modelagem, migrations e client tipado (via `@prisma/adapter-pg`)
@@ -13,7 +13,8 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 - **Nodemailer** — envio de e-mails (redefinição de senha) via SMTP
 - **Zod** — validação dos dados de entrada
 - **Docker / Docker Compose** — containerização
-- **Jest** — testes automatizados
+- **ESLint / Prettier** — lint e formatação
+- **Vitest / Supertest** — testes automatizados
 
 ## 📁 Estrutura do Projeto
 
@@ -21,14 +22,19 @@ Sistema web para gerenciamento de biblioteca interna com cadastro, locação e d
 template-node-mvc/
 ├── src/
 │   ├── server.ts          # Ponto de entrada da aplicação
-│   ├── app.ts             # Express + middleware global de erro
-│   ├── routes/            # Definição das rotas (ex.: usuario.routes.ts)
-│   ├── controllers/       # Camada HTTP (req/res, status codes)
-│   ├── services/          # Regra de negócio e acesso ao Prisma
-│   ├── middlewares/       # Autenticação e autorização (auth.ts)
-│   ├── schemas/           # Validação de entrada com Zod
+│   ├── app.ts             # Express + monta as routes do container
+│   ├── container.ts       # Único ponto de instanciação/injeção de dependências
+│   ├── modules/           # Um diretório por domínio (auth, usuario, livro,
+│   │                      #   locacao, dashboard, permissao), cada um com
+│   │                      #   *.schema/*.errors/*.repository/*.service/*.router
+│   │                      #   + __tests__/
+│   ├── shared/
+│   │   ├── errors/        # DomainError → NotFound/Forbidden/Conflict/Validation
+│   │   ├── middlewares/   # errorHandler (RFC 9457), validate, auth
+│   │   ├── clients/       # Integrações externas (Open Library)
+│   │   └── livro-status.ts# Cálculo de status compartilhado entre livro/locacao
 │   ├── constants/         # Constantes do domínio (ex.: permissoes.ts)
-│   ├── utils/             # Utilitários: cpf.ts (validação) e erros.ts (padrão de erro)
+│   ├── utils/             # Utilitários: cpf.ts (validação de CPF)
 │   ├── lib/
 │   │   ├── prisma.ts      # Instância única do Prisma Client
 │   │   └── mailer.ts      # Envio de e-mail (Nodemailer)
@@ -66,14 +72,14 @@ template-node-mvc/
 
 O schema (em [prisma/schema.prisma](prisma/schema.prisma)) define seis tabelas principais:
 
-| Tabela | Descrição |
-|--------|-----------|
-| `permissoes` | Permissões específicas atribuíveis a usuários (relação N:N) |
-| `usuarios` | Usuários do sistema — CPF e e-mail únicos; possuem `perfil`, `setor` e permissões |
-| `livros` | Títulos do acervo (autor, ISBN, editora) |
-| `exemplares` | Cópias físicas de um livro, com status `DISPONIVEL` / `LOCADO` / `MANUTENCAO` |
-| `locacoes` | Empréstimos de exemplares a usuários (com data de devolução) |
-| `historico_movimentacoes` | Auditoria de locações, devoluções e renovações |
+| Tabela                    | Descrição                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------- |
+| `permissoes`              | Permissões específicas atribuíveis a usuários (relação N:N)                       |
+| `usuarios`                | Usuários do sistema — CPF e e-mail únicos; possuem `perfil`, `setor` e permissões |
+| `livros`                  | Títulos do acervo (autor, ISBN, editora)                                          |
+| `exemplares`              | Cópias físicas de um livro, com status `DISPONIVEL` / `LOCADO` / `MANUTENCAO`     |
+| `locacoes`                | Empréstimos de exemplares a usuários (com data de devolução)                      |
+| `historico_movimentacoes` | Auditoria de locações, devoluções e renovações                                    |
 
 > A separação entre **livro** (título) e **exemplar** (cópia física) permite controlar múltiplos exemplares de um mesmo livro e saber, individualmente, se cada cópia está disponível ou locada.
 
@@ -92,20 +98,20 @@ O acesso às funcionalidades é controlado em duas camadas:
 
 As permissões possíveis (populadas via seed, ver abaixo):
 
-| Permissão | Descrição |
-|-----------|-----------|
-| `CADASTRAR_USUARIOS` | Cadastrar usuários |
-| `CADASTRAR_LIVROS` | Cadastrar livros |
-| `LOCAR_LIVROS` | Locar livros |
-| `DEVOLVER_LIVROS` | Devolver livros |
-| `EXCLUIR_LIVROS` | Excluir livros |
-| `ACESSAR_DASHBOARD` | Ver o **dashboard pessoal** na tela Início |
+| Permissão            | Descrição                                  |
+| -------------------- | ------------------------------------------ |
+| `CADASTRAR_USUARIOS` | Cadastrar usuários                         |
+| `CADASTRAR_LIVROS`   | Cadastrar livros                           |
+| `LOCAR_LIVROS`       | Locar livros                               |
+| `DEVOLVER_LIVROS`    | Devolver livros                            |
+| `EXCLUIR_LIVROS`     | Excluir livros                             |
+| `ACESSAR_DASHBOARD`  | Ver o **dashboard pessoal** na tela Início |
 
 Ao cadastrar um novo `USUARIO` sem permissões explícitas, ele recebe o **conjunto padrão limitado**: `LOCAR_LIVROS`, `DEVOLVER_LIVROS` e `ACESSAR_DASHBOARD`.
 
 > 📊 **Dashboards — pessoal x geral:** a permissão `ACESSAR_DASHBOARD` libera o **dashboard pessoal** (só as locações do próprio usuário) na tela **Início**. O **Painel geral** — indicadores de **todos** os usuários — é uma tela à parte, **exclusiva de administradores** (rota `GET /dashboard` protegida por `exigirAdmin`). Cada usuário, portanto, só enxerga os dados das próprias locações; o admin vê as dele no Início e todas no Painel geral.
 
-A verificação é feita pelo middleware `exigirPermissao(<nome>)` (em [src/middlewares/auth.ts](src/middlewares/auth.ts)), que consulta as permissões do usuário **no banco a cada requisição** — assim, habilitar ou remover uma permissão tem efeito imediato, sem esperar o token expirar. Um administrador gerencia as permissões de um usuário pela rota `PATCH /usuarios/:id/permissoes`.
+A verificação é feita pelo middleware `exigirPermissao(<nome>)` (fábrica em [src/shared/middlewares/auth.ts](src/shared/middlewares/auth.ts), instanciada com a checagem real do módulo usuario em [src/container.ts](src/container.ts)), que consulta as permissões do usuário **no banco a cada requisição** — assim, habilitar ou remover uma permissão tem efeito imediato, sem esperar o token expirar. Um administrador gerencia as permissões de um usuário pela rota `PATCH /usuarios/:id/permissoes`.
 
 **Duas camadas de enforcement:**
 
@@ -137,22 +143,22 @@ cp .env.example .env
 
 Variáveis disponíveis:
 
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `PORT` | `3002` | Porta em que a aplicação escuta |
-| `DB_HOST` | `db` | Host do PostgreSQL (`db` = nome do serviço no Docker Compose; use `localhost` fora do Docker) |
-| `DB_PORT` | `5432` | Porta interna do PostgreSQL |
-| `DB_USER` | — | Usuário do banco de dados |
-| `DB_PASSWORD` | — | Senha do banco de dados |
-| `DB_NAME` | `biblioteca` | Nome do banco de dados |
-| `DATABASE_URL` | — | String de conexão usada pelo Prisma (ver observação abaixo) |
-| `JWT_SECRET` | — | Segredo para assinatura dos tokens JWT |
-| `SMTP_HOST` | — | Host do servidor SMTP. **Vazio em dev** → usa conta de teste Ethereal (link sai no console) |
-| `SMTP_PORT` | `587` | Porta SMTP (`587` = TLS/STARTTLS, `465` = SSL) |
-| `SMTP_USER` | — | Usuário de autenticação SMTP (geralmente o e-mail completo) |
-| `SMTP_PASS` | — | Senha do SMTP (muitas vezes uma "senha de app") |
-| `SMTP_FROM` | — | Remetente exibido no e-mail (ex.: `"Biblioteca <nao-responda@empresa.com>"`) |
-| `APP_URL` | `http://localhost:3002` | URL base usada para montar o link de redefinição no e-mail |
+| Variável       | Padrão                  | Descrição                                                                                     |
+| -------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `PORT`         | `3002`                  | Porta em que a aplicação escuta                                                               |
+| `DB_HOST`      | `db`                    | Host do PostgreSQL (`db` = nome do serviço no Docker Compose; use `localhost` fora do Docker) |
+| `DB_PORT`      | `5432`                  | Porta interna do PostgreSQL                                                                   |
+| `DB_USER`      | —                       | Usuário do banco de dados                                                                     |
+| `DB_PASSWORD`  | —                       | Senha do banco de dados                                                                       |
+| `DB_NAME`      | `biblioteca`            | Nome do banco de dados                                                                        |
+| `DATABASE_URL` | —                       | String de conexão usada pelo Prisma (ver observação abaixo)                                   |
+| `JWT_SECRET`   | —                       | Segredo para assinatura dos tokens JWT                                                        |
+| `SMTP_HOST`    | —                       | Host do servidor SMTP. **Vazio em dev** → usa conta de teste Ethereal (link sai no console)   |
+| `SMTP_PORT`    | `587`                   | Porta SMTP (`587` = TLS/STARTTLS, `465` = SSL)                                                |
+| `SMTP_USER`    | —                       | Usuário de autenticação SMTP (geralmente o e-mail completo)                                   |
+| `SMTP_PASS`    | —                       | Senha do SMTP (muitas vezes uma "senha de app")                                               |
+| `SMTP_FROM`    | —                       | Remetente exibido no e-mail (ex.: `"Biblioteca <nao-responda@empresa.com>"`)                  |
+| `APP_URL`      | `http://localhost:3002` | URL base usada para montar o link de redefinição no e-mail                                    |
 
 > ⚠️ **Portas:** o app usa **3002** e o PostgreSQL é exposto no host na porta **5433** (a 3000 e a 5432 costumam estar ocupadas por outros serviços / instalações locais). Ao alterá-las, ajuste também os mapeamentos `ports` no `docker-compose.yml`.
 >
@@ -175,10 +181,12 @@ docker compose up -d --build
 ```
 
 > 🌱 **Primeira execução:** as migrations rodam sozinhas no start, mas o banco sobe **vazio**. Popule as permissões e crie o admin inicial rodando os seeds **dentro do container** (uma única vez):
+>
 > ```bash
 > docker compose exec app npx tsx prisma/seed-permissoes.ts
 > docker compose exec app npx tsx prisma/seed-admin.ts
 > ```
+>
 > Depois acesse [http://localhost:3002](http://localhost:3002) e entre com **admin@empresa.com / admin123** (ou os valores de `ADMIN_EMAIL` / `ADMIN_SENHA`).
 >
 > Para **zerar o banco** e recomeçar do zero: `docker compose down -v && docker compose up -d --build` (o `-v` apaga o volume `pgdata` — **irreversível** — e exige rodar os seeds novamente).
@@ -207,19 +215,19 @@ Resposta esperada:
 
 ## 🗃️ Banco de dados (Prisma)
 
-| Comando | Descrição |
-|---------|-----------|
-| `npx prisma migrate dev --name <nome>` | Cria e aplica uma nova migration (desenvolvimento) |
-| `npx prisma migrate deploy` | Aplica migrations pendentes (produção / container) |
-| `npx prisma generate` | Regenera o client tipado a partir do schema |
-| `npx prisma studio` | Abre a interface visual para inspecionar e editar dados |
+| Comando                                | Descrição                                               |
+| -------------------------------------- | ------------------------------------------------------- |
+| `npx prisma migrate dev --name <nome>` | Cria e aplica uma nova migration (desenvolvimento)      |
+| `npx prisma migrate deploy`            | Aplica migrations pendentes (produção / container)      |
+| `npx prisma generate`                  | Regenera o client tipado a partir do schema             |
+| `npx prisma studio`                    | Abre a interface visual para inspecionar e editar dados |
 
 **Seeds (dados iniciais):**
 
-| Comando | Descrição |
-|---------|-----------|
-| `npx tsx prisma/seed-permissoes.ts` | Popula as 6 permissões do sistema (idempotente) |
-| `npx tsx prisma/seed-admin.ts` | Cria o primeiro usuário administrador (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA`) |
+| Comando                             | Descrição                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| `npx tsx prisma/seed-permissoes.ts` | Popula as 6 permissões do sistema (idempotente)                              |
+| `npx tsx prisma/seed-admin.ts`      | Cria o primeiro usuário administrador (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA`) |
 
 > Ao inserir dados manualmente, respeite a ordem de dependência: crie uma **permissão** antes do **usuário**, e um **livro** antes do **exemplar**.
 
@@ -227,16 +235,16 @@ Resposta esperada:
 
 O front-end são páginas estáticas em [public/](public/) que consomem a API. O cabeçalho com o menu é montado dinamicamente por [public/js/layout.js](public/js/layout.js), exibindo apenas os itens permitidos ao usuário logado.
 
-| Tela | Arquivo | Acesso | Descrição |
-|------|---------|--------|-----------|
-| **Login** | `index.html` | Público | Entrada por e-mail/senha; guarda o token JWT e redireciona para o Início. Link para "Esqueci minha senha". |
-| **Esqueci / Redefinir senha** | `esqueci-senha.html`, `redefinir-senha.html` | Público | Solicita o e-mail de redefinição e define a nova senha a partir do link recebido. |
-| **Início** | `home.html` | Autenticado | **Dashboard pessoal**: só as locações do próprio usuário (em dia / atrasadas / devolvidas), próximas devoluções por prazo e situação. Aparece para quem tem `ACESSAR_DASHBOARD` (senão, boas-vindas com atalhos). |
-| **Acervo** | `livros.html` | Autenticado | Cards de livros de **tamanho uniforme** com **busca e filtros** (título, autor, editora, ano, status). Faixa lateral colorida pelo status; **clicar no card abre um modal** com os detalhes. Ações conforme a permissão (**Locar**, **+ Exemplar**, **Excluir**). O cadastro de livro é um **modal** com autocomplete via Open Library e detecção de duplicados. |
-| **Confirmar locação** | `locacao.html` | `LOCAR_LIVROS` | Confirma o empréstimo de um livro selecionado no acervo, definindo o prazo. |
-| **Minhas locações** | `minhas-locacoes.html` | Autenticado | **Cards** das locações ativas do próprio usuário, com o **prazo destacado por cor** (em dia / vencendo / atrasado); clicar no card mostra os detalhes. Botão **Devolver** (com confirmação) e **histórico** em modal com filtro. |
-| **Gerenciar usuários** | `admin-usuarios.html` | Administrador | **Cadastro de novo usuário** (com validação de campos, CPF e e-mail), edição de dados/perfil e habilitação/remoção de permissões. |
-| **Painel geral** | `dashboard.html` | Administrador | Indicadores de **todos** os usuários: totais do acervo, ranking de locadores, situação do acervo e últimas locações. |
+| Tela                          | Arquivo                                      | Acesso         | Descrição                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------- | -------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Login**                     | `index.html`                                 | Público        | Entrada por e-mail/senha; guarda o token JWT e redireciona para o Início. Link para "Esqueci minha senha".                                                                                                                                                                                                                                                       |
+| **Esqueci / Redefinir senha** | `esqueci-senha.html`, `redefinir-senha.html` | Público        | Solicita o e-mail de redefinição e define a nova senha a partir do link recebido.                                                                                                                                                                                                                                                                                |
+| **Início**                    | `home.html`                                  | Autenticado    | **Dashboard pessoal**: só as locações do próprio usuário (em dia / atrasadas / devolvidas), próximas devoluções por prazo e situação. Aparece para quem tem `ACESSAR_DASHBOARD` (senão, boas-vindas com atalhos).                                                                                                                                                |
+| **Acervo**                    | `livros.html`                                | Autenticado    | Cards de livros de **tamanho uniforme** com **busca e filtros** (título, autor, editora, ano, status). Faixa lateral colorida pelo status; **clicar no card abre um modal** com os detalhes. Ações conforme a permissão (**Locar**, **+ Exemplar**, **Excluir**). O cadastro de livro é um **modal** com autocomplete via Open Library e detecção de duplicados. |
+| **Confirmar locação**         | `locacao.html`                               | `LOCAR_LIVROS` | Confirma o empréstimo de um livro selecionado no acervo, definindo o prazo.                                                                                                                                                                                                                                                                                      |
+| **Minhas locações**           | `minhas-locacoes.html`                       | Autenticado    | **Cards** das locações ativas do próprio usuário, com o **prazo destacado por cor** (em dia / vencendo / atrasado); clicar no card mostra os detalhes. Botão **Devolver** (com confirmação) e **histórico** em modal com filtro.                                                                                                                                 |
+| **Gerenciar usuários**        | `admin-usuarios.html`                        | Administrador  | **Cadastro de novo usuário** (com validação de campos, CPF e e-mail), edição de dados/perfil e habilitação/remoção de permissões.                                                                                                                                                                                                                                |
+| **Painel geral**              | `dashboard.html`                             | Administrador  | Indicadores de **todos** os usuários: totais do acervo, ranking de locadores, situação do acervo e últimas locações.                                                                                                                                                                                                                                             |
 
 ### Interface
 
@@ -249,7 +257,7 @@ O front-end são páginas estáticas em [public/](public/) que consomem a API. O
 
 O sistema padroniza validações e mensagens para nunca quebrar nem expor erros internos ao usuário.
 
-**Validação de entrada (Zod):** todos os corpos de requisição são validados por schemas em [src/schemas/](src/schemas/). Campos obrigatórios, formato de e-mail e o **CPF** (validado pelos **dígitos verificadores** — não apenas 11 dígitos, ver [src/utils/cpf.ts](src/utils/cpf.ts)) são checados no back-end. O front-end também valida antes de enviar, para feedback imediato.
+**Validação de entrada (Zod):** todos os corpos de requisição são validados por schemas `*.schema.ts` dentro de cada módulo em [src/modules/](src/modules/), aplicados pelo middleware [src/shared/middlewares/validate.ts](src/shared/middlewares/validate.ts). Campos obrigatórios, formato de e-mail e o **CPF** (validado pelos **dígitos verificadores** — não apenas 11 dígitos, ver [src/utils/cpf.ts](src/utils/cpf.ts)) são checados no back-end. O front-end também valida antes de enviar, para feedback imediato.
 
 **Formato único de erro:** respostas de erro seguem sempre o formato:
 
@@ -263,11 +271,11 @@ O sistema padroniza validações e mensagens para nunca quebrar nem expor erros 
 - `erro` — mensagem amigável, pronta para exibir.
 - `campos` (opcional) — mapa `campo → mensagem`; o front-end usa para **destacar** o input inválido (borda vermelha + texto abaixo) via `aplicarErros()` em [public/js/ui.js](public/js/ui.js).
 
-**Erros de banco:** violações conhecidas do Prisma são traduzidas para respostas amigáveis (registro duplicado → `409`, não encontrado → `404`) em [src/utils/erros.ts](src/utils/erros.ts). Nunca é exposto SQL ou stack trace.
+**Erros de banco:** violações conhecidas do Prisma são traduzidas para respostas amigáveis (registro duplicado → `409`, não encontrado → `404`) pelo `errorHandler` central em [src/shared/middlewares/error-handler.ts](src/shared/middlewares/error-handler.ts). Nunca é exposto SQL ou stack trace.
 
-**Falha na Open Library:** a busca externa tem *timeout* de 5s e, em qualquer falha (rede, timeout ou status inválido), responde `{ indisponivel: true }` — a tela apenas informa que as sugestões estão indisponíveis e permite o cadastro manual, sem travar.
+**Falha na Open Library:** a busca externa (isolada em [src/shared/clients/open-library.ts](src/shared/clients/open-library.ts)) tem _timeout_ de 5s e, em qualquer falha (rede, timeout ou status inválido), responde `{ indisponivel: true }` — a tela apenas informa que as sugestões estão indisponíveis e permite o cadastro manual, sem travar.
 
-**Rede de segurança:** um middleware global em [src/app.ts](src/app.ts) captura qualquer exceção não prevista, registra o detalhe **apenas no log do servidor** e devolve um `500` genérico (`"Ocorreu um erro inesperado. Tente novamente em instantes."`).
+**Rede de segurança:** o `errorHandler` central, plugado em [src/app.ts](src/app.ts), captura qualquer exceção não prevista, registra o detalhe **apenas no log do servidor** e devolve um `500` genérico (`"Ocorreu um erro inesperado. Tente novamente em instantes."`).
 
 ## 🔌 API
 
@@ -277,10 +285,10 @@ Autentica um usuário a partir de e-mail e senha e retorna um token JWT usado na
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `email` | string | ✅ | E-mail cadastrado |
-| `senha` | string | ✅ | Senha do usuário |
+| Campo   | Tipo   | Obrigatório | Descrição         |
+| ------- | ------ | :---------: | ----------------- |
+| `email` | string |     ✅      | E-mail cadastrado |
+| `senha` | string |     ✅      | Senha do usuário  |
 
 **Exemplo de requisição:**
 
@@ -312,12 +320,12 @@ O token expira em **8 horas** e deve ser enviado nas rotas protegidas no header 
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Autenticado — retorna `token` e dados do usuário (sem a senha) |
-| `400 Bad Request` | Campos inválidos (validação Zod) ou JSON malformado |
-| `401 Unauthorized` | E-mail inexistente ou senha incorreta |
-| `500 Internal Server Error` | Falha inesperada ao autenticar |
+| Status                      | Situação                                                       |
+| --------------------------- | -------------------------------------------------------------- |
+| `200 OK`                    | Autenticado — retorna `token` e dados do usuário (sem a senha) |
+| `400 Bad Request`           | Campos inválidos (validação Zod) ou JSON malformado            |
+| `401 Unauthorized`          | E-mail inexistente ou senha incorreta                          |
+| `500 Internal Server Error` | Falha inesperada ao autenticar                                 |
 
 > 🔑 **Primeiro acesso:** o cadastro de usuários (`POST /usuarios`) exige um token de administrador. Para criar o primeiro admin — sem o qual não há como gerar esse token — rode o script de bootstrap: `npx tsx prisma/seed-admin.ts` (ajuste `ADMIN_EMAIL` / `ADMIN_SENHA` conforme necessário). Ele insere um administrador com a senha já em hash bcrypt.
 
@@ -341,11 +349,11 @@ Retorna o perfil e as permissões do usuário autenticado, usados pelo front-end
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Dados do usuário logado (`perfil` e `permissoes` achatadas em array de nomes) |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `404 Not Found` | Usuário do token não encontrado |
+| Status             | Situação                                                                      |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `200 OK`           | Dados do usuário logado (`perfil` e `permissoes` achatadas em array de nomes) |
+| `401 Unauthorized` | Token ausente ou inválido                                                     |
+| `404 Not Found`    | Usuário do token não encontrado                                               |
 
 ### `POST /auth/esqueci-senha` — Solicitar redefinição de senha
 
@@ -355,18 +363,18 @@ Inicia o fluxo de "Esqueci minha senha": valida se o e-mail está cadastrado, ge
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `email` | string | ✅ | E-mail cadastrado |
+| Campo   | Tipo   | Obrigatório | Descrição         |
+| ------- | ------ | :---------: | ----------------- |
+| `email` | string |     ✅      | E-mail cadastrado |
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Solicitação aceita — e-mail de redefinição enviado |
-| `400 Bad Request` | Campo inválido (validação Zod) ou JSON malformado |
-| `404 Not Found` | E-mail não cadastrado |
-| `500 Internal Server Error` | Falha ao gerar o token ou enviar o e-mail |
+| Status                      | Situação                                           |
+| --------------------------- | -------------------------------------------------- |
+| `200 OK`                    | Solicitação aceita — e-mail de redefinição enviado |
+| `400 Bad Request`           | Campo inválido (validação Zod) ou JSON malformado  |
+| `404 Not Found`             | E-mail não cadastrado                              |
+| `500 Internal Server Error` | Falha ao gerar o token ou enviar o e-mail          |
 
 ### `POST /auth/redefinir-senha` — Redefinir a senha
 
@@ -374,18 +382,18 @@ Conclui o fluxo: valida o token recebido no link, verifica se **não** está exp
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `token` | string | ✅ | Token recebido no link enviado por e-mail |
-| `novaSenha` | string | ✅ | Nova senha (mínimo de 6 caracteres, armazenada com hash) |
+| Campo       | Tipo   | Obrigatório | Descrição                                                |
+| ----------- | ------ | :---------: | -------------------------------------------------------- |
+| `token`     | string |     ✅      | Token recebido no link enviado por e-mail                |
+| `novaSenha` | string |     ✅      | Nova senha (mínimo de 6 caracteres, armazenada com hash) |
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Senha redefinida com sucesso |
-| `400 Bad Request` | Campos inválidos, **ou token inválido / expirado / já utilizado** |
-| `500 Internal Server Error` | Falha inesperada ao redefinir |
+| Status                      | Situação                                                          |
+| --------------------------- | ----------------------------------------------------------------- |
+| `200 OK`                    | Senha redefinida com sucesso                                      |
+| `400 Bad Request`           | Campos inválidos, **ou token inválido / expirado / já utilizado** |
+| `500 Internal Server Error` | Falha inesperada ao redefinir                                     |
 
 ### `GET /usuarios` — Listar usuários
 
@@ -395,11 +403,11 @@ Lista todos os usuários cadastrados (ordenados por nome), com seus perfis e per
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Lista de usuários (cada um com `id`, `nome`, `email`, `setor`, `cpf`, `perfil`, `criadoEm` e `permissoes`) |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+| Status             | Situação                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `200 OK`           | Lista de usuários (cada um com `id`, `nome`, `email`, `setor`, `cpf`, `perfil`, `criadoEm` e `permissoes`) |
+| `401 Unauthorized` | Token ausente ou inválido                                                                                  |
+| `403 Forbidden`    | Token válido, mas o usuário não é `ADMINISTRADOR`                                                          |
 
 ### `POST /usuarios` — Cadastro de usuário
 
@@ -409,15 +417,15 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `nome` | string | ✅ | Nome do usuário |
-| `email` | string | ✅ | E-mail (único e em formato válido) |
-| `setor` | enum | ✅ | Um dos setores: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA` |
-| `cpf` | string | ✅ | 11 dígitos, **validado pelos dígitos verificadores** (não apenas o formato); único |
-| `senha` | string | ✅ | Mínimo de 6 caracteres (armazenada com hash) |
-| `perfil` | enum | ✅ | `ADMINISTRADOR` ou `USUARIO` |
-| `permissoesIds` | number[] | ❌ | IDs de permissões específicas a vincular |
+| Campo           | Tipo     | Obrigatório | Descrição                                                                                                               |
+| --------------- | -------- | :---------: | ----------------------------------------------------------------------------------------------------------------------- |
+| `nome`          | string   |     ✅      | Nome do usuário                                                                                                         |
+| `email`         | string   |     ✅      | E-mail (único e em formato válido)                                                                                      |
+| `setor`         | enum     |     ✅      | Um dos setores: `SUPORTE`, `SERVICOS`, `SANCONHUB`, `ADMINISTRATIVO`, `COMERCIAL`, `MARKETING`, `TI`, `RH`, `DIRETORIA` |
+| `cpf`           | string   |     ✅      | 11 dígitos, **validado pelos dígitos verificadores** (não apenas o formato); único                                      |
+| `senha`         | string   |     ✅      | Mínimo de 6 caracteres (armazenada com hash)                                                                            |
+| `perfil`        | enum     |     ✅      | `ADMINISTRADOR` ou `USUARIO`                                                                                            |
+| `permissoesIds` | number[] |     ❌      | IDs de permissões específicas a vincular                                                                                |
 
 **Exemplo de requisição:**
 
@@ -435,13 +443,13 @@ Cadastra um novo usuário no sistema. **Restrito a administradores.**
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `201 Created` | Usuário cadastrado (a senha nunca é retornada) |
-| `400 Bad Request` | Campos inválidos — retorna `{ erro, campos }` (ver [Validações e erros](#-validações-e-tratamento-de-erros)) |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
-| `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
+| Status             | Situação                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `201 Created`      | Usuário cadastrado (a senha nunca é retornada)                                                               |
+| `400 Bad Request`  | Campos inválidos — retorna `{ erro, campos }` (ver [Validações e erros](#-validações-e-tratamento-de-erros)) |
+| `401 Unauthorized` | Token ausente ou inválido                                                                                    |
+| `403 Forbidden`    | Token válido, mas o usuário não é `ADMINISTRADOR`                                                            |
+| `409 Conflict`     | Já existe usuário com o mesmo CPF ou e-mail                                                                  |
 
 ### `PATCH /usuarios/:id/permissoes` — Habilitar/desabilitar permissões
 
@@ -451,10 +459,10 @@ Habilita ou remove permissões específicas de um usuário. **Restrito a adminis
 
 **Corpo (JSON):** informe ao menos um dos campos.
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `habilitar` | number[] | ❌ | IDs de permissões a vincular ao usuário |
-| `desabilitar` | number[] | ❌ | IDs de permissões a remover do usuário |
+| Campo         | Tipo     | Obrigatório | Descrição                               |
+| ------------- | -------- | :---------: | --------------------------------------- |
+| `habilitar`   | number[] |     ❌      | IDs de permissões a vincular ao usuário |
+| `desabilitar` | number[] |     ❌      | IDs de permissões a remover do usuário  |
 
 **Exemplo de requisição:**
 
@@ -467,13 +475,13 @@ Habilita ou remove permissões específicas de um usuário. **Restrito a adminis
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Permissões atualizadas — retorna o usuário (sem a senha) com a lista de permissões |
-| `400 Bad Request` | ID inválido, corpo inválido ou nenhum campo informado |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
-| `404 Not Found` | Usuário ou permissão informada não encontrado |
+| Status             | Situação                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `200 OK`           | Permissões atualizadas — retorna o usuário (sem a senha) com a lista de permissões |
+| `400 Bad Request`  | ID inválido, corpo inválido ou nenhum campo informado                              |
+| `401 Unauthorized` | Token ausente ou inválido                                                          |
+| `403 Forbidden`    | Token válido, mas o usuário não é `ADMINISTRADOR`                                  |
+| `404 Not Found`    | Usuário ou permissão informada não encontrado                                      |
 
 ### `PATCH /usuarios/:id` — Editar dados e perfil
 
@@ -483,24 +491,24 @@ Atualiza dados básicos e/ou o perfil de um usuário. **Restrito a administrador
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `nome` | string | ❌ | Novo nome |
-| `email` | string | ❌ | Novo e-mail (único e em formato válido) |
-| `setor` | enum | ❌ | Um dos setores válidos |
-| `cpf` | string | ❌ | CPF com 11 dígitos (único) |
-| `perfil` | enum | ❌ | `ADMINISTRADOR` ou `USUARIO` |
+| Campo    | Tipo   | Obrigatório | Descrição                               |
+| -------- | ------ | :---------: | --------------------------------------- |
+| `nome`   | string |     ❌      | Novo nome                               |
+| `email`  | string |     ❌      | Novo e-mail (único e em formato válido) |
+| `setor`  | enum   |     ❌      | Um dos setores válidos                  |
+| `cpf`    | string |     ❌      | CPF com 11 dígitos (único)              |
+| `perfil` | enum   |     ❌      | `ADMINISTRADOR` ou `USUARIO`            |
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Usuário atualizado (sem a senha), com a lista de permissões |
-| `400 Bad Request` | ID inválido, campos inválidos ou nenhum campo informado |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
-| `404 Not Found` | Usuário não encontrado |
-| `409 Conflict` | Já existe usuário com o mesmo CPF ou e-mail |
+| Status             | Situação                                                    |
+| ------------------ | ----------------------------------------------------------- |
+| `200 OK`           | Usuário atualizado (sem a senha), com a lista de permissões |
+| `400 Bad Request`  | ID inválido, campos inválidos ou nenhum campo informado     |
+| `401 Unauthorized` | Token ausente ou inválido                                   |
+| `403 Forbidden`    | Token válido, mas o usuário não é `ADMINISTRADOR`           |
+| `404 Not Found`    | Usuário não encontrado                                      |
+| `409 Conflict`     | Já existe usuário com o mesmo CPF ou e-mail                 |
 
 > ⚠️ **Alteração de perfil e o token:** mudar o `perfil` de um usuário só passa a valer no **próximo login** dele, pois o perfil está gravado no JWT. Já a alteração de **permissões** reflete imediatamente (o middleware as consulta no banco a cada requisição).
 
@@ -512,11 +520,11 @@ Retorna todas as permissões disponíveis no sistema (usada para montar a tela d
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Lista de permissões (`id`, `nome`, `descricao`) |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Token válido, mas o usuário não é `ADMINISTRADOR` |
+| Status             | Situação                                          |
+| ------------------ | ------------------------------------------------- |
+| `200 OK`           | Lista de permissões (`id`, `nome`, `descricao`)   |
+| `401 Unauthorized` | Token ausente ou inválido                         |
+| `403 Forbidden`    | Token válido, mas o usuário não é `ADMINISTRADOR` |
 
 ### `GET /livros` — Listar livros do acervo
 
@@ -526,20 +534,20 @@ Lista todos os livros (ordenados por título) com o **status derivado** de seus 
 
 Cada item retorna:
 
-| Campo | Descrição |
-|-------|-----------|
-| `id`, `titulo`, `autor`, `editora`, `anoPublicacao`, `edicao`, `isbn` | Dados do livro |
-| `totalExemplares` | Total de exemplares cadastrados |
-| `exemplaresDisponiveis` | Quantidade de exemplares com status `DISPONIVEL` |
-| `status` | `DISPONIVEL` (há ao menos um exemplar livre) ou `LOCADO` (todos locados) |
-| `dataPrevistaDisponibilidade` | Quando `LOCADO`, a menor data prevista de devolução entre as locações ativas; caso contrário, `null` |
+| Campo                                                                 | Descrição                                                                                            |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `id`, `titulo`, `autor`, `editora`, `anoPublicacao`, `edicao`, `isbn` | Dados do livro                                                                                       |
+| `totalExemplares`                                                     | Total de exemplares cadastrados                                                                      |
+| `exemplaresDisponiveis`                                               | Quantidade de exemplares com status `DISPONIVEL`                                                     |
+| `status`                                                              | `DISPONIVEL` (há ao menos um exemplar livre) ou `LOCADO` (todos locados)                             |
+| `dataPrevistaDisponibilidade`                                         | Quando `LOCADO`, a menor data prevista de devolução entre as locações ativas; caso contrário, `null` |
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Lista de livros com status e contagem de exemplares |
-| `401 Unauthorized` | Token ausente ou inválido |
+| Status             | Situação                                            |
+| ------------------ | --------------------------------------------------- |
+| `200 OK`           | Lista de livros com status e contagem de exemplares |
+| `401 Unauthorized` | Token ausente ou inválido                           |
 
 > Enquanto a funcionalidade de locação não estiver ativa, nenhum exemplar fica `LOCADO`, então todos os livros retornam `status: DISPONIVEL` e `dataPrevistaDisponibilidade: null`.
 
@@ -551,16 +559,16 @@ Cadastra um livro no acervo e cria automaticamente a quantidade informada de **e
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `titulo` | string | ✅ | Título do livro |
-| `autor` | string | ✅ | Autor(es) — vários podem ser separados por vírgula |
-| `editora` | string | ❌ | Editora (pode vir vazia da Open Library) |
-| `anoPublicacao` | number | ✅ | Ano de publicação |
-| `edicao` | string | ✅ | Edição (ex.: `"2ª"`) |
-| `observacao` | string | ❌ | Observação |
-| `isbn` | string | ❌ | ISBN (único, se informado) |
-| `quantidadeExemplares` | number | ✅ | Quantidade de exemplares a criar (mínimo 1) |
+| Campo                  | Tipo   | Obrigatório | Descrição                                          |
+| ---------------------- | ------ | :---------: | -------------------------------------------------- |
+| `titulo`               | string |     ✅      | Título do livro                                    |
+| `autor`                | string |     ✅      | Autor(es) — vários podem ser separados por vírgula |
+| `editora`              | string |     ❌      | Editora (pode vir vazia da Open Library)           |
+| `anoPublicacao`        | number |     ✅      | Ano de publicação                                  |
+| `edicao`               | string |     ✅      | Edição (ex.: `"2ª"`)                               |
+| `observacao`           | string |     ❌      | Observação                                         |
+| `isbn`                 | string |     ❌      | ISBN (único, se informado)                         |
+| `quantidadeExemplares` | number |     ✅      | Quantidade de exemplares a criar (mínimo 1)        |
 
 **Exemplo de requisição:**
 
@@ -578,13 +586,13 @@ Cadastra um livro no acervo e cria automaticamente a quantidade informada de **e
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `201 Created` | Livro cadastrado — retorna o livro com a lista de `exemplares` criados |
-| `400 Bad Request` | Campos obrigatórios inválidos (validação Zod) ou JSON malformado |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
-| `409 Conflict` | **Livro duplicado** (mesmo título, autor, editora, ano e edição) ou ISBN já existente |
+| Status             | Situação                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `201 Created`      | Livro cadastrado — retorna o livro com a lista de `exemplares` criados                |
+| `400 Bad Request`  | Campos obrigatórios inválidos (validação Zod) ou JSON malformado                      |
+| `401 Unauthorized` | Token ausente ou inválido                                                             |
+| `403 Forbidden`    | Usuário sem a permissão `CADASTRAR_LIVROS`                                            |
+| `409 Conflict`     | **Livro duplicado** (mesmo título, autor, editora, ano e edição) ou ISBN já existente |
 
 > O livro e seus exemplares são criados numa **transação** (ou tudo, ou nada). Cada exemplar recebe um código de tombo único no formato `<idLivro>-<sequencial>` (ex.: `5-001`).
 
@@ -608,9 +616,9 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `quantidade` | number | ✅ | Quantidade de exemplares a adicionar (mínimo 1) |
+| Campo        | Tipo   | Obrigatório | Descrição                                       |
+| ------------ | ------ | :---------: | ----------------------------------------------- |
+| `quantidade` | number |     ✅      | Quantidade de exemplares a adicionar (mínimo 1) |
 
 **Exemplo de resposta (`201 Created`):**
 
@@ -624,13 +632,13 @@ Cria novos exemplares (status `DISPONIVEL`) para um livro já cadastrado e retor
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `201 Created` | Exemplares adicionados — retorna `totalExemplares` e `exemplaresDisponiveis` |
-| `400 Bad Request` | ID inválido ou quantidade inválida |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
-| `404 Not Found` | Livro não encontrado |
+| Status             | Situação                                                                     |
+| ------------------ | ---------------------------------------------------------------------------- |
+| `201 Created`      | Exemplares adicionados — retorna `totalExemplares` e `exemplaresDisponiveis` |
+| `400 Bad Request`  | ID inválido ou quantidade inválida                                           |
+| `401 Unauthorized` | Token ausente ou inválido                                                    |
+| `403 Forbidden`    | Usuário sem a permissão `CADASTRAR_LIVROS`                                   |
+| `404 Not Found`    | Livro não encontrado                                                         |
 
 ### `DELETE /livros/:id` — Remover livro do acervo
 
@@ -640,14 +648,14 @@ Remove um livro do acervo por **soft delete** (marca `ativo = false`), preservan
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Livro removido do acervo (inativado) |
-| `400 Bad Request` | ID inválido |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Usuário não é `ADMINISTRADOR` |
-| `404 Not Found` | Livro não encontrado |
-| `409 Conflict` | Livro possui exemplar locado — não pode ser excluído |
+| Status             | Situação                                             |
+| ------------------ | ---------------------------------------------------- |
+| `200 OK`           | Livro removido do acervo (inativado)                 |
+| `400 Bad Request`  | ID inválido                                          |
+| `401 Unauthorized` | Token ausente ou inválido                            |
+| `403 Forbidden`    | Usuário não é `ADMINISTRADOR`                        |
+| `404 Not Found`    | Livro não encontrado                                 |
+| `409 Conflict`     | Livro possui exemplar locado — não pode ser excluído |
 
 > Livros inativados **deixam de aparecer** em `GET /livros`, portanto não ficam disponíveis para locação, mas continuam no banco (com `ativo: false`) para manter o histórico. Na tela de acervo, o botão **Excluir** aparece apenas para administradores e pede **confirmação** antes de remover.
 
@@ -659,9 +667,9 @@ Consulta a [Open Library API](https://openlibrary.org/developers/api) para suger
 
 **Query params:**
 
-| Param | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `titulo` | string | ✅ | Termo de busca (mínimo 2 caracteres; abaixo disso retorna lista vazia) |
+| Param    | Tipo   | Obrigatório | Descrição                                                              |
+| -------- | ------ | :---------: | ---------------------------------------------------------------------- |
+| `titulo` | string |     ✅      | Termo de busca (mínimo 2 caracteres; abaixo disso retorna lista vazia) |
 
 **Exemplo de resposta (`200 OK`):**
 
@@ -682,11 +690,11 @@ Consulta a [Open Library API](https://openlibrary.org/developers/api) para suger
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Lista de até **10** sugestões em `sugestoes`. Se a Open Library falhar ou expirar (timeout de 5s), responde `200` com `indisponivel: true` e `sugestoes: []` — a tela continua usável e o cadastro manual permanece possível |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Usuário sem a permissão `CADASTRAR_LIVROS` |
+| Status             | Situação                                                                                                                                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `200 OK`           | Lista de até **10** sugestões em `sugestoes`. Se a Open Library falhar ou expirar (timeout de 5s), responde `200` com `indisponivel: true` e `sugestoes: []` — a tela continua usável e o cadastro manual permanece possível |
+| `401 Unauthorized` | Token ausente ou inválido                                                                                                                                                                                                    |
+| `403 Forbidden`    | Usuário sem a permissão `CADASTRAR_LIVROS`                                                                                                                                                                                   |
 
 > ⚠️ A API externa pode não retornar todos os campos (ex.: `editora`, `isbn` costumam vir vazios no `search.json`). Os campos ausentes ficam para preenchimento manual; `edição` e `observação` são sempre manuais.
 
@@ -698,10 +706,10 @@ Registra a locação de um livro pelo usuário logado. O sistema seleciona autom
 
 **Corpo (JSON):**
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `livroId` | number | ✅ | ID do livro a ser locado |
-| `dias` | number | ✅ | Quantidade de dias de utilização (mínimo 1) |
+| Campo     | Tipo   | Obrigatório | Descrição                                   |
+| --------- | ------ | :---------: | ------------------------------------------- |
+| `livroId` | number |     ✅      | ID do livro a ser locado                    |
+| `dias`    | number |     ✅      | Quantidade de dias de utilização (mínimo 1) |
 
 **Exemplo de resposta (`201 Created`):**
 
@@ -716,13 +724,13 @@ Registra a locação de um livro pelo usuário logado. O sistema seleciona autom
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `201 Created` | Locação registrada — retorna o exemplar locado e a data prevista de devolução |
-| `400 Bad Request` | Campos inválidos (ex.: `dias` ausente ou menor que 1) |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Usuário sem a permissão `LOCAR_LIVROS` |
-| `409 Conflict` | Nenhum exemplar disponível para o livro |
+| Status             | Situação                                                                      |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `201 Created`      | Locação registrada — retorna o exemplar locado e a data prevista de devolução |
+| `400 Bad Request`  | Campos inválidos (ex.: `dias` ausente ou menor que 1)                         |
+| `401 Unauthorized` | Token ausente ou inválido                                                     |
+| `403 Forbidden`    | Usuário sem a permissão `LOCAR_LIVROS`                                        |
+| `409 Conflict`     | Nenhum exemplar disponível para o livro                                       |
 
 > A operação é **transacional**: cria a `Locacao`, muda o status do exemplar para `LOCADO` e registra a movimentação (`LOCACAO`) no histórico. A `dataPrevista` é calculada como **hoje + `dias`**. Quando **todos** os exemplares de um livro ficam locados, o acervo (`GET /livros`) passa a exibir `status: LOCADO` com a `dataPrevistaDisponibilidade`.
 
@@ -737,29 +745,29 @@ Lista as locações com o status derivado de cada uma, para a tela "Minhas loca�
 
 **Query params:**
 
-| Param | Tipo | Obrigatório | Descrição |
-|-------|------|:-----------:|-----------|
-| `meu` | boolean | ❌ | Só faz efeito para administradores: `true` limita à própria conta |
+| Param | Tipo    | Obrigatório | Descrição                                                         |
+| ----- | ------- | :---------: | ----------------------------------------------------------------- |
+| `meu` | boolean |     ❌      | Só faz efeito para administradores: `true` limita à própria conta |
 
 Cada item retorna:
 
-| Campo | Descrição |
-|-------|-----------|
-| `id` | ID da locação |
-| `livro`, `autor`, `exemplar` | Livro locado e o código do exemplar |
-| `dataLocacao` | Data da locação |
-| `prazo` | Data prevista de devolução (`dataPrevista`) |
-| `dataDevolucao` | Data da devolução, ou `null` se ainda ativa |
-| `status` | `ATIVA`, `ATRASADA` (prazo vencido, não devolvida) ou `DEVOLVIDA` |
-| `ativa` | `true` enquanto não devolvida (usado para exibir a ação de devolução) |
-| `usuario` | Dono da locação (`id`, `nome`, `email`) — relevante para o administrador |
+| Campo                        | Descrição                                                                |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `id`                         | ID da locação                                                            |
+| `livro`, `autor`, `exemplar` | Livro locado e o código do exemplar                                      |
+| `dataLocacao`                | Data da locação                                                          |
+| `prazo`                      | Data prevista de devolução (`dataPrevista`)                              |
+| `dataDevolucao`              | Data da devolução, ou `null` se ainda ativa                              |
+| `status`                     | `ATIVA`, `ATRASADA` (prazo vencido, não devolvida) ou `DEVOLVIDA`        |
+| `ativa`                      | `true` enquanto não devolvida (usado para exibir a ação de devolução)    |
+| `usuario`                    | Dono da locação (`id`, `nome`, `email`) — relevante para o administrador |
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Lista de locações no escopo do usuário |
-| `401 Unauthorized` | Token ausente ou inválido |
+| Status             | Situação                               |
+| ------------------ | -------------------------------------- |
+| `200 OK`           | Lista de locações no escopo do usuário |
+| `401 Unauthorized` | Token ausente ou inválido              |
 
 > 🔒 Um `USUARIO` **nunca** recebe locações de terceiros — o filtro por `usuarioId` do token é aplicado no servidor, independentemente de query params.
 
@@ -771,14 +779,14 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 
 **Respostas:**
 
-| Status | Situação |
-|--------|----------|
-| `200 OK` | Devolução registrada — retorna a `dataDevolucao` |
-| `400 Bad Request` | ID inválido |
-| `401 Unauthorized` | Token ausente ou inválido |
-| `403 Forbidden` | Sem a permissão `DEVOLVER_LIVROS`, ou tentativa de devolver locação de outro usuário (não-admin) |
-| `404 Not Found` | Locação não encontrada |
-| `409 Conflict` | Locação já devolvida |
+| Status             | Situação                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `200 OK`           | Devolução registrada — retorna a `dataDevolucao`                                                 |
+| `400 Bad Request`  | ID inválido                                                                                      |
+| `401 Unauthorized` | Token ausente ou inválido                                                                        |
+| `403 Forbidden`    | Sem a permissão `DEVOLVER_LIVROS`, ou tentativa de devolver locação de outro usuário (não-admin) |
+| `404 Not Found`    | Locação não encontrada                                                                           |
+| `409 Conflict`     | Locação já devolvida                                                                             |
 
 > Um `USUARIO` só pode devolver as **próprias** locações; um `ADMINISTRADOR` pode devolver qualquer uma. A locação devolvida permanece registrada (passa a compor o histórico).
 >
@@ -786,12 +794,15 @@ Registra a devolução de uma locação ativa: grava a `dataDevolucao`, devolve 
 
 ## 📜 Scripts disponíveis
 
-| Script | Comando | Descrição |
-|--------|---------|-----------|
-| `dev` | `tsx watch src/server.ts` | Inicia em modo desenvolvimento com hot reload |
-| `build` | `prisma generate && tsc` | Gera o client do Prisma e compila `src/` → `dist/` |
-| `start` | `node dist/server.js` | Inicia a aplicação compilada (produção) |
-| `test` | `jest` | Executa os testes automatizados |
+| Script         | Comando                   | Descrição                                          |
+| -------------- | ------------------------- | -------------------------------------------------- |
+| `dev`          | `tsx watch src/server.ts` | Inicia em modo desenvolvimento com hot reload      |
+| `build`        | `prisma generate && tsc`  | Gera o client do Prisma e compila `src/` → `dist/` |
+| `start`        | `node dist/server.js`     | Inicia a aplicação compilada (produção)            |
+| `test`         | `vitest run --coverage`   | Executa os testes automatizados com cobertura      |
+| `lint`         | `eslint .`                | Lint do código TypeScript                          |
+| `format:check` | `prettier --check .`      | Verifica a formatação (sem alterar arquivos)       |
+| `typecheck`    | `tsc --noEmit`            | Checagem de tipos sem gerar saída                  |
 
 ## ✨ Funcionalidades
 

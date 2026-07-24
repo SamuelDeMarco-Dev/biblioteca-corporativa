@@ -1,0 +1,72 @@
+# Scans de segurança, custo zero de licença: Semgrep CE (SAST + segredos) + Trivy (misconfig de
+# IaC/Dockerfile/containers). O código NÃO sai da infra: roda tudo no runner.
+
+name: Security (Semgrep + Trivy)
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semgrep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep-scan:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep # CLI já instalado — nada para hospedar
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Semgrep scan
+        run: |
+          semgrep scan \
+            --config p/secrets \
+            --config p/typescript \
+            --config p/express \
+            --config p/docker \
+            --severity ERROR \
+            --sarif --output semgrep.sarif
+          # CALIBRAGEM: 1ª rodada SEM --error, só para ver o volume (já está sem --error).
+          # Depois de triar falsos-positivos, adicionar --error para gatear o merge.
+
+      - name: Upload SARIF (artefato — funciona sem GitHub Advanced Security)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          retention-days: 14
+
+  # Trivy: misconfiguração de Dockerfile/docker-compose — a frente que Semgrep (SAST de código),
+  # e Dependabot (deps) NÃO cobrem. Roda no runner; nada hospedado.
+  trivy-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy config (Dockerfile / docker-compose)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: '0' # CALIBRAGEM: 1ª rodada só para ver o volume; depois subir para "1".
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload Trivy SARIF (artefato)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sarif
+          path: trivy.sarif
+          retention-days: 14

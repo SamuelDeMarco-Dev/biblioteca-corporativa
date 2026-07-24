@@ -1,0 +1,13 @@
+{
+  "lint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "duplication": {
+    "percentage": 0.32
+  },
+  "coverage": {
+    "lines": 65.65
+  },
+  "oversizedFiles": []
+}

@@ -7,7 +7,15 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/server.js",
-    "test": "jest"
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "quality:baseline": "node scripts/quality-gate.mjs --baseline",
+    "quality:gate": "node scripts/quality-gate.mjs"
   },
   "keywords": [
     "biblioteca",
@@ -31,16 +39,25 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.19.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.1",
     "@types/nodemailer": "^8.0.1",
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.0",
+    "@types/supertest": "^6.0.2",
+    "@vitest/coverage-v8": "^3.0.5",
+    "eslint": "^9.19.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "jscpd": "^4.0.5",
+    "prettier": "^3.4.2",
     "prisma": "^7.8.0",
+    "supertest": "^7.0.0",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.21.0",
+    "vitest": "^3.0.5"
   }
 }
